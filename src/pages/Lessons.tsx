@@ -1,5 +1,5 @@
-import { Edit2, Plus, Trash2, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp, Edit2, Plus, Trash2, X } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
@@ -25,6 +25,8 @@ type LessonFormState = {
   note: string;
 };
 
+const durationOptions = [1, 1.5, 2, 2.5];
+
 const statusLabel: Record<LessonStatus, string> = {
   completed: '已上课',
   cancelled: '取消',
@@ -38,8 +40,58 @@ const billingTypeLabel: Record<BillingType, string> = {
   per_session: '按次',
 };
 
+interface LessonsProps {
+  onNavigateToStudents: () => void;
+}
+
 function todayString() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function addDurationToTime(startTime: string, duration: number) {
+  if (!startTime || duration <= 0 || Number.isNaN(duration)) {
+    return '';
+  }
+
+  const [hour, minute] = startTime.split(':').map(Number);
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return '';
+  }
+
+  const totalMinutes = (hour * 60 + minute + Math.round(duration * 60)) % (24 * 60);
+  const endHour = Math.floor(totalMinutes / 60);
+  const endMinute = totalMinutes % 60;
+  return `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
+}
+
+function calculateFormAmount(form: Pick<LessonFormState, 'duration' | 'rate' | 'billingType' | 'status'>) {
+  const duration = Number(form.duration);
+  const rate = Number(form.rate);
+
+  if (Number.isNaN(duration) || Number.isNaN(rate) || duration <= 0 || rate < 0) {
+    return '0';
+  }
+
+  return String(calculateLessonAmount({ duration, rate, billingType: form.billingType, status: form.status }));
+}
+
+function withAutoEndTime(form: LessonFormState) {
+  const duration = Number(form.duration);
+  return {
+    ...form,
+    endTime: form.startTime ? addDurationToTime(form.startTime, duration) : '',
+  };
+}
+
+function withAutoAmount(form: LessonFormState) {
+  return {
+    ...form,
+    amount: calculateFormAmount(form),
+  };
+}
+
+function withQuickComputed(form: LessonFormState) {
+  return withAutoAmount(withAutoEndTime(form));
 }
 
 function emptyForm(students: Student[]): LessonFormState {
@@ -102,21 +154,19 @@ function toLessonInput(form: LessonFormState): LessonInput {
   };
 }
 
-function calculateDuration(startTime: string, endTime: string) {
-  if (!startTime || !endTime) {
-    return null;
+function shouldOpenMoreSettings(lesson: Lesson | null) {
+  if (!lesson) {
+    return false;
   }
 
-  const [startHour, startMinute] = startTime.split(':').map(Number);
-  const [endHour, endMinute] = endTime.split(':').map(Number);
-  const start = startHour * 60 + startMinute;
-  const end = endHour * 60 + endMinute;
-
-  if (end <= start) {
-    return null;
-  }
-
-  return Number(((end - start) / 60).toFixed(2));
+  return Boolean(
+    lesson.content ||
+      lesson.homework ||
+      lesson.note ||
+      lesson.status !== 'completed' ||
+      lesson.isSettled ||
+      lesson.billingType === 'per_session',
+  );
 }
 
 function summary(value?: string, empty = '暂无') {
@@ -140,45 +190,34 @@ function inputClassName() {
   return 'h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15';
 }
 
+function amountPreviewText(form: LessonFormState) {
+  if (form.billingType === 'hourly') {
+    return `${form.duration || 0} 小时 × ¥${form.rate || 0}/小时 = ¥${form.amount || 0}`;
+  }
+
+  return `每次 ¥${form.rate || 0} = ¥${form.amount || 0}`;
+}
+
 interface LessonFormProps {
   initialValue: LessonFormState;
   students: Student[];
   title: string;
+  defaultMoreOpen: boolean;
+  isEditing: boolean;
   onCancel: () => void;
   onSave: (input: LessonInput) => void;
 }
 
-function LessonForm({ initialValue, students, title, onCancel, onSave }: LessonFormProps) {
-  const [form, setForm] = useState<LessonFormState>(initialValue);
+function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing, onCancel, onSave }: LessonFormProps) {
+  const [form, setForm] = useState<LessonFormState>(() => (isEditing ? initialValue : withQuickComputed(initialValue)));
   const [error, setError] = useState('');
+  const [isMoreOpen, setIsMoreOpen] = useState(defaultMoreOpen);
+  const durationInputRef = useRef<HTMLInputElement>(null);
   const selectedStudent = students.find((student) => student.id === form.studentId);
 
-  function autoAmount(next: Pick<LessonFormState, 'duration' | 'rate' | 'billingType' | 'status'>) {
-    const duration = Number(next.duration);
-    const rate = Number(next.rate);
-
-    if (Number.isNaN(duration) || Number.isNaN(rate) || duration <= 0 || rate < 0) {
-      return form.amount;
-    }
-
-    return String(
-      calculateLessonAmount({
-        duration,
-        rate,
-        billingType: next.billingType,
-        status: next.status,
-      }),
-    );
-  }
-
-  function updateCalculatedFields(partial: Partial<LessonFormState>) {
-    setForm((current) => {
-      const next = { ...current, ...partial };
-      return {
-        ...next,
-        amount: autoAmount(next),
-      };
-    });
+  function updateQuickFields(partial: Partial<LessonFormState>) {
+    setError('');
+    setForm((current) => withQuickComputed({ ...current, ...partial }));
   }
 
   function handleStudentChange(studentId: string) {
@@ -188,38 +227,11 @@ function LessonForm({ initialValue, students, title, onCancel, onSave }: LessonF
       return;
     }
 
-    const next = {
-      ...form,
+    updateQuickFields({
       studentId,
       duration: String(student.defaultDuration),
       rate: String(student.defaultRate),
       billingType: student.billingType,
-    };
-
-    setForm({
-      ...next,
-      amount: autoAmount(next),
-    });
-  }
-
-  function handleTimeChange(key: 'startTime' | 'endTime', value: string) {
-    setError('');
-    setForm((current) => {
-      const next = { ...current, [key]: value };
-      const duration = calculateDuration(next.startTime, next.endTime);
-
-      if (!duration) {
-        if (next.startTime && next.endTime) {
-          setError('结束时间需要晚于开始时间。');
-        }
-        return next;
-      }
-
-      const withDuration = { ...next, duration: String(duration) };
-      return {
-        ...withDuration,
-        amount: autoAmount(withDuration),
-      };
     });
   }
 
@@ -237,7 +249,7 @@ function LessonForm({ initialValue, students, title, onCancel, onSave }: LessonF
     }
 
     if (Number(form.duration) <= 0 || Number.isNaN(Number(form.duration))) {
-      setError('时长需要是大于 0 的数字。');
+      setError('上课时长需要是大于 0 的数字。');
       return;
     }
 
@@ -258,7 +270,10 @@ function LessonForm({ initialValue, students, title, onCancel, onSave }: LessonF
     <Card className="mb-4">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-ink">{title}</h2>
+          <div>
+            <h2 className="text-base font-semibold text-ink">{title}</h2>
+            <p className="mt-1 text-xs text-slate-500">快速记录一节课，默认只填核心信息。</p>
+          </div>
           <button
             type="button"
             onClick={onCancel}
@@ -287,146 +302,184 @@ function LessonForm({ initialValue, students, title, onCancel, onSave }: LessonF
           <p className="mt-2 text-xs text-slate-500">科目：{selectedStudent?.subject ?? '选择学生后显示'}</p>
         </div>
 
-        <div>
-          <FieldLabel required>日期</FieldLabel>
-          <input
-            className={inputClassName()}
-            type="date"
-            value={form.date}
-            onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
-            required
-          />
-        </div>
-
         <div className="grid grid-cols-2 gap-3">
+          <div>
+            <FieldLabel required>日期</FieldLabel>
+            <input
+              className={inputClassName()}
+              type="date"
+              value={form.date}
+              onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
+              required
+            />
+          </div>
           <div>
             <FieldLabel>开始时间</FieldLabel>
             <input
               className={inputClassName()}
               type="time"
               value={form.startTime}
-              onChange={(event) => handleTimeChange('startTime', event.target.value)}
+              onChange={(event) => updateQuickFields({ startTime: event.target.value })}
             />
-          </div>
-          <div>
-            <FieldLabel>结束时间</FieldLabel>
-            <input
-              className={inputClassName()}
-              type="time"
-              value={form.endTime}
-              onChange={(event) => handleTimeChange('endTime', event.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <FieldLabel required>时长</FieldLabel>
-            <input
-              className={inputClassName()}
-              type="number"
-              min="0.5"
-              step="0.5"
-              value={form.duration}
-              onChange={(event) => updateCalculatedFields({ duration: event.target.value })}
-              required
-            />
-          </div>
-          <div>
-            <FieldLabel required>单价</FieldLabel>
-            <input
-              className={inputClassName()}
-              type="number"
-              min="0"
-              step="1"
-              value={form.rate}
-              onChange={(event) => updateCalculatedFields({ rate: event.target.value })}
-              required
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <FieldLabel>计费方式</FieldLabel>
-            <select
-              className={inputClassName()}
-              value={form.billingType}
-              onChange={(event) => updateCalculatedFields({ billingType: event.target.value as BillingType })}
-            >
-              <option value="hourly">按小时</option>
-              <option value="per_session">按次</option>
-            </select>
-          </div>
-          <div>
-            <FieldLabel>课程状态</FieldLabel>
-            <select
-              className={inputClassName()}
-              value={form.status}
-              onChange={(event) => updateCalculatedFields({ status: event.target.value as LessonStatus })}
-            >
-              <option value="completed">已上课</option>
-              <option value="leave">请假</option>
-              <option value="cancelled">取消</option>
-              <option value="makeup">补课</option>
-              <option value="trial">试课</option>
-            </select>
           </div>
         </div>
 
         <div>
-          <FieldLabel required>金额</FieldLabel>
+          <FieldLabel required>上课时长</FieldLabel>
+          <div className="mb-3 grid grid-cols-5 gap-2">
+            {durationOptions.map((duration) => {
+              const active = Number(form.duration) === duration;
+
+              return (
+                <button
+                  key={duration}
+                  type="button"
+                  onClick={() => updateQuickFields({ duration: String(duration) })}
+                  className={`h-9 rounded-md border px-1 text-xs font-medium ${
+                    active ? 'border-mint bg-mint text-white' : 'border-line bg-white text-slate-600'
+                  }`}
+                >
+                  {duration}h
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => durationInputRef.current?.focus()}
+              className="h-9 rounded-md border border-line bg-white px-1 text-xs font-medium text-slate-600"
+            >
+              自定义
+            </button>
+          </div>
           <input
+            ref={durationInputRef}
             className={inputClassName()}
             type="number"
-            min="0"
-            step="1"
-            value={form.amount}
-            onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+            min="0.5"
+            step="0.5"
+            value={form.duration}
+            onChange={(event) => updateQuickFields({ duration: event.target.value })}
             required
           />
-          <p className="mt-2 text-xs text-slate-500">修改时长、单价、计费方式或状态后会重新自动计算。</p>
+          <p className="mt-2 text-xs text-slate-500">
+            {form.startTime ? `预计结束：${form.endTime || '待计算'}` : '不填开始时间也可以保存。'}
+          </p>
         </div>
 
-        <label className="flex items-center gap-3 rounded-md bg-slate-50 px-3 py-3 text-sm text-slate-700">
-          <input
-            type="checkbox"
-            checked={form.isSettled}
-            onChange={(event) => setForm((current) => ({ ...current, isSettled: event.target.checked }))}
-            className="h-4 w-4 accent-mint"
-          />
-          是否已结算
-        </label>
-
-        <div>
-          <FieldLabel>课堂内容</FieldLabel>
-          <textarea
-            className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15"
-            value={form.content}
-            onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
-            placeholder="本节课讲了哪些内容"
-          />
+        <div className="rounded-lg border border-mint/25 bg-mint/10 p-4">
+          <p className="text-xs font-medium text-mint">费用预览</p>
+          <p className="mt-2 text-lg font-bold text-ink">{amountPreviewText(form)}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            状态默认已上课，{form.isSettled ? '已结算' : '未结算'}
+          </p>
         </div>
 
-        <div>
-          <FieldLabel>作业</FieldLabel>
-          <textarea
-            className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15"
-            value={form.homework}
-            onChange={(event) => setForm((current) => ({ ...current, homework: event.target.value }))}
-            placeholder="布置的练习或复习任务"
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => setIsMoreOpen((current) => !current)}
+          className="flex w-full items-center justify-between rounded-md bg-slate-50 px-3 py-3 text-sm font-medium text-slate-600"
+        >
+          更多设置
+          {isMoreOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
 
-        <div>
-          <FieldLabel>备注</FieldLabel>
-          <textarea
-            className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15"
-            value={form.note}
-            onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
-            placeholder="特殊情况、沟通记录等"
-          />
-        </div>
+        {isMoreOpen ? (
+          <div className="space-y-4 rounded-lg border border-line bg-white p-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel>课程状态</FieldLabel>
+                <select
+                  className={inputClassName()}
+                  value={form.status}
+                  onChange={(event) => updateQuickFields({ status: event.target.value as LessonStatus })}
+                >
+                  <option value="completed">已上课</option>
+                  <option value="leave">请假</option>
+                  <option value="cancelled">取消</option>
+                  <option value="makeup">补课</option>
+                  <option value="trial">试课</option>
+                </select>
+              </div>
+              <div>
+                <FieldLabel>计费方式</FieldLabel>
+                <select
+                  className={inputClassName()}
+                  value={form.billingType}
+                  onChange={(event) => updateQuickFields({ billingType: event.target.value as BillingType })}
+                >
+                  <option value="hourly">按小时</option>
+                  <option value="per_session">按次</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel>单价</FieldLabel>
+                <input
+                  className={inputClassName()}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.rate}
+                  onChange={(event) => updateQuickFields({ rate: event.target.value })}
+                />
+              </div>
+              <div>
+                <FieldLabel required>金额</FieldLabel>
+                <input
+                  className={inputClassName()}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.amount}
+                  onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+
+            <label className="flex items-center gap-3 rounded-md bg-slate-50 px-3 py-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.isSettled}
+                onChange={(event) => setForm((current) => ({ ...current, isSettled: event.target.checked }))}
+                className="h-4 w-4 accent-mint"
+              />
+              是否已结算
+            </label>
+
+            <div>
+              <FieldLabel>课堂内容</FieldLabel>
+              <textarea
+                className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15"
+                value={form.content}
+                onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
+                placeholder="本节课讲了哪些内容"
+              />
+            </div>
+
+            <div>
+              <FieldLabel>作业</FieldLabel>
+              <textarea
+                className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15"
+                value={form.homework}
+                onChange={(event) => setForm((current) => ({ ...current, homework: event.target.value }))}
+                placeholder="布置的练习或复习任务"
+              />
+            </div>
+
+            <div>
+              <FieldLabel>备注</FieldLabel>
+              <textarea
+                className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15"
+                value={form.note}
+                onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
+                placeholder="特殊情况、沟通记录等"
+              />
+            </div>
+          </div>
+        ) : null}
 
         {error ? <p className="rounded-md bg-coral/10 px-3 py-2 text-sm text-coral">{error}</p> : null}
 
@@ -516,7 +569,7 @@ function LessonCard({
   );
 }
 
-export function Lessons() {
+export function Lessons({ onNavigateToStudents }: LessonsProps) {
   const { students } = useStudents();
   const { lessons, addLesson, updateLesson, deleteLesson } = useLessons();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -557,36 +610,41 @@ export function Lessons() {
     }
   }
 
+  const canCreateLesson = students.length > 0;
+
   return (
     <div>
       <PageHeader title="课时记录" />
+
+      {canCreateLesson && !isFormOpen ? (
+        <ActionButton variant="primary" className="mb-4 inline-flex w-full items-center justify-center gap-2" onClick={openCreateForm}>
+          <Plus className="h-4 w-4" />
+          新增课时
+        </ActionButton>
+      ) : null}
 
       {isFormOpen ? (
         <LessonForm
           title={editingLesson ? '编辑课时' : '新增课时'}
           initialValue={editingLesson ? lessonToForm(editingLesson) : emptyForm(students)}
           students={students}
+          defaultMoreOpen={shouldOpenMoreSettings(editingLesson)}
+          isEditing={Boolean(editingLesson)}
           onCancel={closeForm}
           onSave={handleSave}
         />
-      ) : (
-        <ActionButton variant="primary" className="mb-4 inline-flex w-full items-center justify-center gap-2" onClick={openCreateForm}>
-          <Plus className="h-4 w-4" />
-          新增课时
-        </ActionButton>
-      )}
+      ) : null}
 
       {students.length === 0 ? (
         <Card className="py-10 text-center">
-          <p className="text-sm text-slate-500">还没有学生，先到学生页添加学生后再记录课时吧。</p>
+          <p className="text-sm text-slate-500">还没有学生，先添加学生后再记录课时。</p>
+          <ActionButton variant="primary" className="mt-4" onClick={onNavigateToStudents}>
+            去添加学生
+          </ActionButton>
         </Card>
       ) : lessons.length === 0 ? (
         <Card className="py-10 text-center">
           <p className="text-sm text-slate-500">还没有课时记录，上完第一节课后记录一下吧。</p>
-          <ActionButton variant="primary" className="mt-4 inline-flex items-center gap-2" onClick={openCreateForm}>
-            <Plus className="h-4 w-4" />
-            新增课时
-          </ActionButton>
         </Card>
       ) : (
         <div className="space-y-3">
