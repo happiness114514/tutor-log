@@ -406,11 +406,7 @@ export function Students() {
 
       {students.length === 0 ? (
         <Card className="py-10 text-center">
-          <p className="text-sm text-slate-500">还没有学生，先添加第一个学生吧。</p>
-          <ActionButton variant="primary" className="mt-4 inline-flex items-center gap-2" onClick={openCreateForm}>
-            <Plus className="h-4 w-4" />
-            新增学生
-          </ActionButton>
+          <p className="text-sm text-slate-500">还没有学生，先点击上方按钮添加第一个学生吧。</p>
         </Card>
       ) : (
         <div className="space-y-3">

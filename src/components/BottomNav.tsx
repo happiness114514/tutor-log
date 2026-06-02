@@ -23,7 +23,7 @@ interface BottomNavProps {
 
 export function BottomNav({ activePage, onChange }: BottomNavProps) {
   return (
-    <nav className="grid grid-cols-5 border-t border-line bg-white px-1 pb-2 pt-2">
+    <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto grid w-full max-w-[430px] grid-cols-5 border-t border-line bg-white px-1 pb-2 pt-2 shadow-[0_-8px_24px_rgba(31,41,51,0.08)]">
       {navItems.map((item) => {
         const Icon = item.icon;
         const active = item.id === activePage;
