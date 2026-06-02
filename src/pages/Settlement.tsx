@@ -47,8 +47,12 @@ function fallbackCopyText(text: string) {
 
 async function copyText(text: string) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Some embedded browsers expose Clipboard API but deny write access.
+    }
   }
 
   fallbackCopyText(text);
@@ -107,16 +111,21 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
   const { lessons, markLessonsSettled } = useLessons();
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  const [manualCopyText, setManualCopyText] = useState('');
 
   const summaries = getUnsettledLessonsByStudent(students, lessons);
   const overview = getSettlementOverview(summaries);
 
   async function handleCopy(summary: SettlementStudentSummary) {
+    const text = generateSettlementText(summary);
+
     try {
-      await copyText(generateSettlementText(summary));
+      await copyText(text);
+      setManualCopyText('');
       setNotice('结算明细已复制');
     } catch {
-      setNotice('复制失败，请手动复制账单文本');
+      setManualCopyText(text);
+      setNotice('自动复制失败，请从下方文本框手动复制');
     }
   }
 
@@ -128,6 +137,7 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
 
     markLessonsSettled(summary.lessons.map((lesson) => lesson.id));
     setExpandedStudentId(null);
+    setManualCopyText('');
     setNotice(`${summary.studentName} 的未结算课时已标记为已收款`);
   }
 
@@ -138,6 +148,7 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
     }
 
     markLessonsSettled([lesson.id]);
+    setManualCopyText('');
     setNotice(`${summary.studentName} ${lesson.date} 的课时已标记为已收款`);
   }
 
@@ -168,6 +179,18 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
 
       {notice ? (
         <div className="mt-3 rounded-lg border border-mint/20 bg-mint/10 px-3 py-2 text-sm text-mint">{notice}</div>
+      ) : null}
+
+      {manualCopyText ? (
+        <Card className="mt-3">
+          <p className="mb-2 text-sm font-semibold text-ink">手动复制账单</p>
+          <textarea
+            className="h-40 w-full rounded-md border border-line bg-slate-50 p-3 text-sm text-slate-700 outline-none focus:border-mint"
+            readOnly
+            value={manualCopyText}
+            onFocus={(event) => event.currentTarget.select()}
+          />
+        </Card>
       ) : null}
 
       <SectionTitle>学生结算</SectionTitle>
