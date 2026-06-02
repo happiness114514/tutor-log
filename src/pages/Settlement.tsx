@@ -4,23 +4,29 @@ import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
 import { settlementItems } from '../store/mockData';
 
+const settlementOverview = [
+  { label: '当前未结算', value: '¥1500' },
+  { label: '未结算课次', value: '5节' },
+  { label: '涉及学生', value: '2人' },
+];
+
 export function Settlement() {
   return (
     <div>
       <PageHeader title="结算" />
 
-      <Card className="bg-mint text-white">
-        <p className="text-sm text-white/80">当前未结算</p>
-        <p className="mt-1 text-3xl font-bold">¥1500</p>
-        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-md bg-white/15 p-3">
-            <p className="text-white/75">未结算课次</p>
-            <p className="mt-1 font-semibold">5节</p>
-          </div>
-          <div className="rounded-md bg-white/15 p-3">
-            <p className="text-white/75">涉及学生</p>
-            <p className="mt-1 font-semibold">3人</p>
-          </div>
+      <Card>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-ink">结算总览</h2>
+          <span className="text-xs text-slate-400">本月</span>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {settlementOverview.map((item) => (
+            <div key={item.label} className="rounded-md bg-slate-50 p-3">
+              <p className="text-xs text-slate-500">{item.label}</p>
+              <p className="mt-2 text-lg font-bold text-ink">{item.value}</p>
+            </div>
+          ))}
         </div>
       </Card>
 
