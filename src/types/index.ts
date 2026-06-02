@@ -1,6 +1,6 @@
 export type PageId = 'dashboard' | 'schedule' | 'lessons' | 'students' | 'settlement';
 
-export type LessonStatus = '待记录' | '未结算' | '已结算';
+export type LessonStatus = 'completed' | 'cancelled' | 'leave' | 'makeup' | 'trial';
 
 export interface StatCardData {
   label: string;
@@ -16,18 +16,6 @@ export interface Course {
   type: '固定课程' | '临时补课';
   reminder?: string;
   status?: string;
-}
-
-export interface LessonRecord {
-  id: string;
-  date: string;
-  time: string;
-  studentName: string;
-  subject: string;
-  duration: string;
-  rate: string;
-  amount: string;
-  status: LessonStatus;
 }
 
 export type BillingType = 'hourly' | 'per_session';
@@ -46,6 +34,26 @@ export type Student = {
   parentContact?: string;
   note?: string;
   isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Lesson = {
+  id: string;
+  studentId: string;
+  scheduleId?: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  duration: number;
+  rate: number;
+  billingType: BillingType;
+  amount: number;
+  status: LessonStatus;
+  isSettled: boolean;
+  content?: string;
+  homework?: string;
+  note?: string;
   createdAt: string;
   updatedAt: string;
 };

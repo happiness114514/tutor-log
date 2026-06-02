@@ -1,4 +1,4 @@
-import type { Course, LessonRecord, SettlementItem, StatCardData, Student } from '../types';
+import type { Course, SettlementItem, StatCardData, Student } from '../types';
 
 export const dashboardStats: StatCardData[] = [
   { label: '本月应收', value: '¥3200', tone: 'mint' },
@@ -34,31 +34,6 @@ export const courses: Course[] = [
     studentName: '小红',
     subject: '英语',
     type: '临时补课',
-  },
-];
-
-export const lessonRecords: LessonRecord[] = [
-  {
-    id: 'lesson-1',
-    date: '6月1日',
-    time: '19:00-21:00',
-    studentName: '小明',
-    subject: '初二数学',
-    duration: '2小时',
-    rate: '¥150/h',
-    amount: '¥300',
-    status: '未结算',
-  },
-  {
-    id: 'lesson-2',
-    date: '5月30日',
-    time: '15:00-17:00',
-    studentName: '小红',
-    subject: '英语',
-    duration: '2小时',
-    rate: '¥120/h',
-    amount: '¥240',
-    status: '已结算',
   },
 ];
 
