@@ -45,7 +45,7 @@ export function App() {
         onCreateRequestConsumed={() => setPendingAction(null)}
       />
     ),
-    settlement: <Settlement />,
+    settlement: <Settlement onNavigateToLessons={() => setActivePage('lessons')} />,
   };
 
   return (

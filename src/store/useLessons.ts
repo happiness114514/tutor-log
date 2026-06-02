@@ -138,10 +138,28 @@ export function useLessons() {
     setLessons((current) => current.filter((lesson) => lesson.id !== id));
   }
 
+  function markLessonsSettled(ids: string[]) {
+    const idSet = new Set(ids);
+    const now = new Date().toISOString();
+
+    setLessons((current) =>
+      current.map((lesson) =>
+        idSet.has(lesson.id)
+          ? {
+              ...lesson,
+              isSettled: true,
+              updatedAt: now,
+            }
+          : lesson,
+      ),
+    );
+  }
+
   return {
     lessons: sortedLessons,
     addLesson,
     updateLesson,
     deleteLesson,
+    markLessonsSettled,
   };
 }
