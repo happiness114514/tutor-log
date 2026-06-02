@@ -610,6 +610,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
           <FieldLabel required>学生</FieldLabel>
           <select
             ref={setFieldRef('studentId')}
+            data-form-autofocus="true"
             className={fieldClassName(Boolean(errors.studentId))}
             value={form.studentId}
             onChange={(event) => handleStudentChange(event.target.value)}
@@ -990,6 +991,7 @@ export function Lessons({ onNavigateToStudents, openCreateRequest = false, onCre
   const { lessons, addLesson, updateLesson, deleteLesson } = useLessons();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+  const formContainerRef = useRef<HTMLDivElement>(null);
 
   const studentMap = useMemo(() => new Map(students.map((student) => [student.id, student])), [students]);
 
@@ -1004,6 +1006,16 @@ export function Lessons({ onNavigateToStudents, openCreateRequest = false, onCre
       onCreateRequestConsumed?.();
     }
   }, [openCreateRequest, onCreateRequestConsumed]);
+
+  useEffect(() => {
+    if (!isFormOpen) {
+      return;
+    }
+
+    formContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const firstField = formContainerRef.current?.querySelector<HTMLElement>('[data-form-autofocus="true"]');
+    firstField?.focus({ preventScroll: true });
+  }, [isFormOpen, editingLesson?.id]);
 
   function openEditForm(lesson: Lesson) {
     setEditingLesson(lesson);
@@ -1047,15 +1059,17 @@ export function Lessons({ onNavigateToStudents, openCreateRequest = false, onCre
       ) : null}
 
       {isFormOpen ? (
-        <LessonForm
-          title={editingLesson ? '编辑课时' : '新增课时'}
-          initialValue={editingLesson ? lessonToForm(editingLesson) : emptyForm(students)}
-          students={students}
-          defaultMoreOpen={shouldOpenMoreSettings(editingLesson)}
-          isEditing={Boolean(editingLesson)}
-          onCancel={closeForm}
-          onSave={handleSave}
-        />
+        <div ref={formContainerRef} className="scroll-mt-4 scroll-mb-28">
+          <LessonForm
+            title={editingLesson ? '编辑课时' : '新增课时'}
+            initialValue={editingLesson ? lessonToForm(editingLesson) : emptyForm(students)}
+            students={students}
+            defaultMoreOpen={shouldOpenMoreSettings(editingLesson)}
+            isEditing={Boolean(editingLesson)}
+            onCancel={closeForm}
+            onSave={handleSave}
+          />
+        </div>
       ) : null}
 
       {students.length === 0 ? (

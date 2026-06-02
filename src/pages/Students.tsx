@@ -207,6 +207,7 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
           <FieldLabel required>姓名</FieldLabel>
           <input
             ref={setFieldRef('name')}
+            data-form-autofocus="true"
             className={inputClassName(Boolean(errors.name))}
             value={form.name}
             onChange={(event) => updateField('name', event.target.value)}
@@ -423,6 +424,7 @@ export function Students({ openCreateRequest = false, onCreateRequestConsumed }:
   const { students, addStudent, updateStudent, deleteStudent } = useStudents();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const formContainerRef = useRef<HTMLDivElement>(null);
 
   function openCreateForm() {
     setEditingStudent(null);
@@ -435,6 +437,16 @@ export function Students({ openCreateRequest = false, onCreateRequestConsumed }:
       onCreateRequestConsumed?.();
     }
   }, [openCreateRequest, onCreateRequestConsumed]);
+
+  useEffect(() => {
+    if (!isFormOpen) {
+      return;
+    }
+
+    formContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const firstField = formContainerRef.current?.querySelector<HTMLElement>('[data-form-autofocus="true"]');
+    firstField?.focus({ preventScroll: true });
+  }, [isFormOpen, editingStudent?.id]);
 
   function openEditForm(student: Student) {
     setEditingStudent(student);
@@ -468,12 +480,14 @@ export function Students({ openCreateRequest = false, onCreateRequestConsumed }:
       <PageHeader title="学生" subtitle="管理学生资料、默认收费和结算偏好" />
 
       {isFormOpen ? (
-        <StudentForm
-          title={editingStudent ? '编辑学生' : '新增学生'}
-          initialValue={editingStudent ? studentToForm(editingStudent) : emptyForm}
-          onCancel={closeForm}
-          onSave={handleSave}
-        />
+        <div ref={formContainerRef} className="scroll-mt-4 scroll-mb-28">
+          <StudentForm
+            title={editingStudent ? '编辑学生' : '新增学生'}
+            initialValue={editingStudent ? studentToForm(editingStudent) : emptyForm}
+            onCancel={closeForm}
+            onSave={handleSave}
+          />
+        </div>
       ) : (
         <ActionButton variant="primary" className="mb-4 inline-flex w-full items-center justify-center gap-2" onClick={openCreateForm}>
           <Plus className="h-4 w-4" />
