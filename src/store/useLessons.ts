@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { BillingType, Lesson, LessonStatus } from '../types';
+import type { BillingType, Lesson, LessonStatus, TrialFeeMode } from '../types';
 import { readStorage, writeStorage } from '../utils/storage';
 
 const STORAGE_KEY = 'tutor-log.lessons';
@@ -14,6 +14,7 @@ export type LessonInput = {
   billingType: BillingType;
   amount: number;
   status: LessonStatus;
+  trialFeeMode?: TrialFeeMode;
   isSettled: boolean;
   content?: string;
   homework?: string;

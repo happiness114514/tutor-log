@@ -4,9 +4,9 @@ import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
-import { calculateLessonAmount, useLessons, type LessonInput } from '../store/useLessons';
+import { useLessons, type LessonInput } from '../store/useLessons';
 import { useStudents } from '../store/useStudents';
-import type { BillingType, Lesson, LessonStatus, Student } from '../types';
+import type { BillingType, Lesson, LessonStatus, Student, TrialFeeMode } from '../types';
 
 type DurationMode = 'preset' | 'custom';
 
@@ -23,6 +23,7 @@ type LessonFormState = {
   billingType: BillingType;
   amount: string;
   status: LessonStatus;
+  trialFeeMode: TrialFeeMode;
   isSettled: boolean;
   content: string;
   homework: string;
@@ -44,6 +45,13 @@ const statusLabel: Record<LessonStatus, string> = {
 const billingTypeLabel: Record<BillingType, string> = {
   hourly: '按小时',
   per_session: '按次',
+};
+
+const trialFeeModeLabel: Record<TrialFeeMode, string> = {
+  free: '免费',
+  half: '半价',
+  normal: '正常',
+  custom: '自定义',
 };
 
 interface LessonsProps {
@@ -121,15 +129,48 @@ function addDurationToTime(startTime: string, duration: number) {
   return `${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}`;
 }
 
-function calculateFormAmount(form: Pick<LessonFormState, 'duration' | 'rate' | 'billingType' | 'status'>) {
+function calculateNormalAmount({
+  duration,
+  rate,
+  billingType,
+}: {
+  duration: number;
+  rate: number;
+  billingType: BillingType;
+}) {
+  if (Number.isNaN(duration) || Number.isNaN(rate) || duration <= 0 || rate < 0) {
+    return 0;
+  }
+
+  return Math.round(billingType === 'hourly' ? duration * rate : rate);
+}
+
+function calculateAutoAmount(
+  form: Pick<LessonFormState, 'duration' | 'rate' | 'billingType' | 'status' | 'trialFeeMode' | 'amount'>,
+) {
   const duration = Number(form.duration);
   const rate = Number(form.rate);
+  const normalAmount = calculateNormalAmount({ duration, rate, billingType: form.billingType });
 
-  if (Number.isNaN(duration) || Number.isNaN(rate) || duration <= 0 || rate < 0) {
+  if (form.status === 'cancelled' || form.status === 'leave') {
     return '0';
   }
 
-  return String(Math.round(calculateLessonAmount({ duration, rate, billingType: form.billingType, status: form.status })));
+  if (form.status === 'trial') {
+    if (form.trialFeeMode === 'free') {
+      return '0';
+    }
+
+    if (form.trialFeeMode === 'half') {
+      return String(Math.round(normalAmount * 0.5));
+    }
+
+    if (form.trialFeeMode === 'custom') {
+      return form.amount;
+    }
+  }
+
+  return String(normalAmount);
 }
 
 function withAutoEndTime(form: LessonFormState) {
@@ -143,12 +184,42 @@ function withAutoEndTime(form: LessonFormState) {
 function withAutoAmount(form: LessonFormState) {
   return {
     ...form,
-    amount: calculateFormAmount(form),
+    amount: calculateAutoAmount(form),
   };
 }
 
 function withQuickComputed(form: LessonFormState) {
   return withAutoAmount(withAutoEndTime(form));
+}
+
+function inferTrialFeeMode(lesson: Lesson): TrialFeeMode {
+  if (lesson.trialFeeMode) {
+    return lesson.trialFeeMode;
+  }
+
+  if (lesson.status !== 'trial') {
+    return 'half';
+  }
+
+  const normalAmount = calculateNormalAmount({
+    duration: lesson.duration,
+    rate: lesson.rate,
+    billingType: lesson.billingType,
+  });
+
+  if (lesson.amount === 0) {
+    return 'free';
+  }
+
+  if (Math.abs(lesson.amount - Math.round(normalAmount * 0.5)) <= 1) {
+    return 'half';
+  }
+
+  if (Math.abs(lesson.amount - normalAmount) <= 1) {
+    return 'normal';
+  }
+
+  return 'custom';
 }
 
 function emptyForm(students: Student[]): LessonFormState {
@@ -170,8 +241,9 @@ function emptyForm(students: Student[]): LessonFormState {
     durationMinutes: String(durationParts.minutes),
     rate: String(rate),
     billingType,
-    amount: String(calculateLessonAmount({ duration, rate, billingType, status })),
+    amount: String(calculateAutoAmount({ duration: String(duration), rate: String(rate), billingType, status, trialFeeMode: 'half', amount: '0' })),
     status,
+    trialFeeMode: 'half',
     isSettled: false,
     content: '',
     homework: '',
@@ -181,6 +253,7 @@ function emptyForm(students: Student[]): LessonFormState {
 
 function lessonToForm(lesson: Lesson): LessonFormState {
   const durationParts = durationToParts(lesson.duration);
+  const trialFeeMode = inferTrialFeeMode(lesson);
 
   return {
     studentId: lesson.studentId,
@@ -195,6 +268,7 @@ function lessonToForm(lesson: Lesson): LessonFormState {
     billingType: lesson.billingType,
     amount: String(lesson.amount),
     status: lesson.status,
+    trialFeeMode,
     isSettled: lesson.isSettled,
     content: lesson.content ?? '',
     homework: lesson.homework ?? '',
@@ -213,6 +287,7 @@ function toLessonInput(form: LessonFormState): LessonInput {
     billingType: form.billingType,
     amount: Number(form.amount),
     status: form.status,
+    trialFeeMode: form.status === 'trial' ? form.trialFeeMode : undefined,
     isSettled: form.isSettled,
     content: form.content,
     homework: form.homework,
@@ -270,6 +345,31 @@ function FieldError({ message }: { message?: string }) {
 
 function amountPreviewText(form: LessonFormState) {
   const durationText = formatDuration(Number(form.duration));
+  const normalAmount = calculateNormalAmount({
+    duration: Number(form.duration),
+    rate: Number(form.rate),
+    billingType: form.billingType,
+  });
+
+  if (form.status === 'leave' || form.status === 'cancelled') {
+    return '本节不计费，费用 ¥0';
+  }
+
+  if (form.status === 'trial') {
+    if (form.trialFeeMode === 'free') {
+      return '试课免费，本节费用 ¥0';
+    }
+
+    if (form.trialFeeMode === 'half') {
+      return `试课半价，原价 ¥${normalAmount}，本节 ¥${form.amount || 0}`;
+    }
+
+    if (form.trialFeeMode === 'normal') {
+      return `试课按正常计费，本节 ¥${form.amount || 0}`;
+    }
+
+    return `试课自定义费用，本节 ¥${form.amount || 0}`;
+  }
 
   if (form.billingType === 'hourly') {
     return `${durationText} × ¥${form.rate || 0}/小时 = ¥${form.amount || 0}`;
@@ -387,6 +487,21 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
       durationMode: 'custom',
       duration: durationFromParts(nextHours, nextMinutes),
     });
+  }
+
+  function updateSettlement(isSettled: boolean) {
+    setForm((current) => ({ ...current, isSettled }));
+  }
+
+  function handleStatusChange(status: LessonStatus) {
+    updateQuickFields({
+      status,
+      trialFeeMode: status === 'trial' ? 'half' : form.trialFeeMode,
+    });
+  }
+
+  function updateTrialFeeMode(trialFeeMode: TrialFeeMode) {
+    updateQuickFields({ trialFeeMode });
   }
 
   function handleStudentChange(studentId: string) {
@@ -601,13 +716,77 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
           </p>
         </div>
 
+        <div>
+          <FieldLabel>结算状态</FieldLabel>
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-1">
+            <button
+              type="button"
+              onClick={() => updateSettlement(false)}
+              className={`h-10 rounded-md text-sm font-semibold transition ${
+                !form.isSettled ? 'bg-coral text-white shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              未结算
+            </button>
+            <button
+              type="button"
+              onClick={() => updateSettlement(true)}
+              className={`h-10 rounded-md text-sm font-semibold transition ${
+                form.isSettled ? 'bg-mint text-white shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              已结算
+            </button>
+          </div>
+        </div>
+
         <div className="rounded-lg border border-mint/25 bg-mint/10 p-4">
           <p className="text-xs font-medium text-mint">费用预览</p>
           <p className="mt-2 text-lg font-bold text-ink">{amountPreviewText(form)}</p>
           <p className="mt-1 text-xs text-slate-500">
-            状态默认已上课，{form.isSettled ? '已结算' : '未结算'}
+            课程状态：{statusLabel[form.status]}，{form.isSettled ? '已结算' : '未结算'}
           </p>
         </div>
+
+        {form.status === 'trial' ? (
+          <div className="rounded-lg border border-violet-100 bg-violet-50 p-3">
+            <p className="text-sm font-semibold text-violet-700">试课费用</p>
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {(Object.keys(trialFeeModeLabel) as TrialFeeMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => updateTrialFeeMode(mode)}
+                  className={`h-9 rounded-md border px-1 text-xs font-medium ${
+                    form.trialFeeMode === mode
+                      ? 'border-violet-500 bg-violet-500 text-white'
+                      : 'border-violet-100 bg-white text-violet-700'
+                  }`}
+                >
+                  {trialFeeModeLabel[mode]}
+                </button>
+              ))}
+            </div>
+            {form.trialFeeMode === 'custom' ? (
+              <div className="mt-3">
+                <FieldLabel required>自定义试课费用</FieldLabel>
+                <input
+                  ref={setFieldRef('amount')}
+                  className={fieldClassName(Boolean(errors.amount))}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.amount}
+                  onChange={(event) => {
+                    clearErrors('amount');
+                    setForm((current) => ({ ...current, amount: event.target.value }));
+                  }}
+                />
+                <FieldError message={errors.amount} />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <button
           type="button"
@@ -627,7 +806,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
                   ref={setFieldRef('status')}
                   className={fieldClassName(Boolean(errors.status))}
                   value={form.status}
-                  onChange={(event) => updateQuickFields({ status: event.target.value as LessonStatus })}
+                  onChange={(event) => handleStatusChange(event.target.value as LessonStatus)}
                 >
                   <option value="completed">已上课</option>
                   <option value="leave">请假</option>
@@ -652,7 +831,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid gap-3 ${form.status === 'trial' ? 'grid-cols-1' : 'grid-cols-2'}`}>
               <div>
                 <FieldLabel>单价</FieldLabel>
                 <input
@@ -666,33 +845,25 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
                 />
                 <FieldError message={errors.rate} />
               </div>
-              <div>
-                <FieldLabel required>金额</FieldLabel>
-                <input
-                  ref={setFieldRef('amount')}
-                  className={fieldClassName(Boolean(errors.amount))}
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.amount}
-                  onChange={(event) => {
-                    clearErrors('amount');
-                    setForm((current) => ({ ...current, amount: event.target.value }));
-                  }}
-                />
-                <FieldError message={errors.amount} />
-              </div>
+              {form.status !== 'trial' ? (
+                <div>
+                  <FieldLabel required>金额</FieldLabel>
+                  <input
+                    ref={setFieldRef('amount')}
+                    className={fieldClassName(Boolean(errors.amount))}
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.amount}
+                    onChange={(event) => {
+                      clearErrors('amount');
+                      setForm((current) => ({ ...current, amount: event.target.value }));
+                    }}
+                  />
+                  <FieldError message={errors.amount} />
+                </div>
+              ) : null}
             </div>
-
-            <label className="flex items-center gap-3 rounded-md bg-slate-50 px-3 py-3 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={form.isSettled}
-                onChange={(event) => setForm((current) => ({ ...current, isSettled: event.target.checked }))}
-                className="h-4 w-4 accent-mint"
-              />
-              是否已结算
-            </label>
 
             <div>
               <FieldLabel>课堂内容</FieldLabel>

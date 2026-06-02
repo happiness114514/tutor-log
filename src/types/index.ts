@@ -2,6 +2,8 @@ export type PageId = 'dashboard' | 'schedule' | 'lessons' | 'students' | 'settle
 
 export type LessonStatus = 'completed' | 'cancelled' | 'leave' | 'makeup' | 'trial';
 
+export type TrialFeeMode = 'free' | 'half' | 'normal' | 'custom';
+
 export interface StatCardData {
   label: string;
   value: string;
@@ -50,6 +52,7 @@ export type Lesson = {
   billingType: BillingType;
   amount: number;
   status: LessonStatus;
+  trialFeeMode?: TrialFeeMode;
   isSettled: boolean;
   content?: string;
   homework?: string;
