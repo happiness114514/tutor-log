@@ -1,5 +1,5 @@
 import { Edit2, Plus, Trash2, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
@@ -19,6 +19,8 @@ type StudentFormState = {
   note: string;
   isActive: boolean;
 };
+
+type StudentFormErrors = Partial<Record<keyof StudentFormState, string>>;
 
 const emptyForm: StudentFormState = {
   name: '',
@@ -84,8 +86,24 @@ function FieldLabel({ children, required = false }: { children: string; required
   );
 }
 
-function inputClassName() {
-  return 'h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15';
+function inputClassName(hasError = false) {
+  return `h-11 w-full rounded-md border bg-white px-3 text-sm text-ink outline-none transition focus:ring-2 ${
+    hasError
+      ? 'border-coral focus:border-coral focus:ring-coral/15'
+      : 'border-line focus:border-mint focus:ring-mint/15'
+  }`;
+}
+
+function textareaClassName(hasError = false) {
+  return `min-h-24 w-full rounded-md border bg-white px-3 py-2 text-sm text-ink outline-none transition focus:ring-2 ${
+    hasError
+      ? 'border-coral focus:border-coral focus:ring-coral/15'
+      : 'border-line focus:border-mint focus:ring-mint/15'
+  }`;
+}
+
+function FieldError({ message }: { message?: string }) {
+  return message ? <p className="mt-1 text-xs text-coral">{message}</p> : null;
 }
 
 interface StudentFormProps {
@@ -97,38 +115,76 @@ interface StudentFormProps {
 
 function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps) {
   const [form, setForm] = useState<StudentFormState>(initialValue);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<StudentFormErrors>({});
+  const fieldRefs = useRef<
+    Partial<Record<keyof StudentFormState, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>>
+  >({});
 
-  const canSave = useMemo(() => {
-    return (
-      form.name.trim().length > 0 &&
-      Number(form.defaultRate) > 0 &&
-      Number(form.defaultDuration) > 0
-    );
-  }, [form]);
+  function setFieldRef(key: keyof StudentFormState) {
+    return (element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => {
+      fieldRefs.current[key] = element;
+    };
+  }
+
+  function focusField(key: keyof StudentFormState) {
+    window.setTimeout(() => {
+      const field = fieldRefs.current[key];
+      field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      field?.focus({ preventScroll: true });
+    }, 0);
+  }
 
   function updateField<K extends keyof StudentFormState>(key: K, value: StudentFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+    setErrors((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
+  function validateForm() {
+    const nextErrors: StudentFormErrors = {};
+
+    if (!form.name.trim()) {
+      nextErrors.name = '请输入学生姓名';
+    }
+
+    if (!form.defaultRate) {
+      nextErrors.defaultRate = '请输入默认单价';
+    } else if (Number(form.defaultRate) <= 0 || Number.isNaN(Number(form.defaultRate))) {
+      nextErrors.defaultRate = '默认单价需要是大于 0 的数字';
+    }
+
+    if (!form.defaultDuration) {
+      nextErrors.defaultDuration = '请输入默认课程时长';
+    } else if (Number(form.defaultDuration) <= 0 || Number.isNaN(Number(form.defaultDuration))) {
+      nextErrors.defaultDuration = '默认课程时长需要是大于 0 的数字';
+    }
+
+    if (!form.billingType) {
+      nextErrors.billingType = '请选择计费方式';
+    }
+
+    if (!form.settlementCycle) {
+      nextErrors.settlementCycle = '请选择结算周期';
+    }
+
+    return nextErrors;
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const nextErrors = validateForm();
+    const firstError = Object.keys(nextErrors)[0] as keyof StudentFormErrors | undefined;
 
-    if (!form.name.trim()) {
-      setError('请填写学生姓名。');
+    if (firstError) {
+      setErrors(nextErrors);
+      focusField(firstError);
       return;
     }
 
-    if (Number(form.defaultRate) <= 0 || Number.isNaN(Number(form.defaultRate))) {
-      setError('默认单价需要是大于 0 的数字。');
-      return;
-    }
-
-    if (Number(form.defaultDuration) <= 0 || Number.isNaN(Number(form.defaultDuration))) {
-      setError('默认课程时长需要是大于 0 的数字。');
-      return;
-    }
-
+    setErrors({});
     onSave(toStudentInput(form));
   }
 
@@ -150,18 +206,20 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
         <div>
           <FieldLabel required>姓名</FieldLabel>
           <input
-            className={inputClassName()}
+            ref={setFieldRef('name')}
+            className={inputClassName(Boolean(errors.name))}
             value={form.name}
             onChange={(event) => updateField('name', event.target.value)}
             placeholder="例如：小明"
-            required
           />
+          <FieldError message={errors.name} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel>年级</FieldLabel>
             <input
+              ref={setFieldRef('grade')}
               className={inputClassName()}
               value={form.grade}
               onChange={(event) => updateField('grade', event.target.value)}
@@ -171,6 +229,7 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
           <div>
             <FieldLabel>科目</FieldLabel>
             <input
+              ref={setFieldRef('subject')}
               className={inputClassName()}
               value={form.subject}
               onChange={(event) => updateField('subject', event.target.value)}
@@ -183,45 +242,50 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
           <div>
             <FieldLabel required>默认单价</FieldLabel>
             <input
-              className={inputClassName()}
+              ref={setFieldRef('defaultRate')}
+              className={inputClassName(Boolean(errors.defaultRate))}
               type="number"
               min="1"
               step="1"
               value={form.defaultRate}
               onChange={(event) => updateField('defaultRate', event.target.value)}
-              required
             />
+            <FieldError message={errors.defaultRate} />
           </div>
           <div>
             <FieldLabel required>课程时长</FieldLabel>
             <input
-              className={inputClassName()}
+              ref={setFieldRef('defaultDuration')}
+              className={inputClassName(Boolean(errors.defaultDuration))}
               type="number"
               min="0.5"
               step="0.5"
               value={form.defaultDuration}
               onChange={(event) => updateField('defaultDuration', event.target.value)}
-              required
             />
+            <FieldError message={errors.defaultDuration} />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <FieldLabel>计费方式</FieldLabel>
+            <FieldLabel required>计费方式</FieldLabel>
             <select
-              className={inputClassName()}
+              ref={setFieldRef('billingType')}
+              className={inputClassName(Boolean(errors.billingType))}
               value={form.billingType}
               onChange={(event) => updateField('billingType', event.target.value as BillingType)}
             >
               <option value="hourly">按小时</option>
               <option value="per_session">按次</option>
             </select>
+            <FieldError message={errors.billingType} />
           </div>
           <div>
-            <FieldLabel>结算周期</FieldLabel>
+            <FieldLabel required>结算周期</FieldLabel>
             <select
-              className={inputClassName()}
+              ref={setFieldRef('settlementCycle')}
+              className={inputClassName(Boolean(errors.settlementCycle))}
               value={form.settlementCycle}
               onChange={(event) => updateField('settlementCycle', event.target.value as SettlementCycle)}
             >
@@ -230,12 +294,14 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
               <option value="monthly">每月</option>
               <option value="custom">自定义</option>
             </select>
+            <FieldError message={errors.settlementCycle} />
           </div>
         </div>
 
         <div>
           <FieldLabel>家长联系方式</FieldLabel>
           <input
+            ref={setFieldRef('parentContact')}
             className={inputClassName()}
             value={form.parentContact}
             onChange={(event) => updateField('parentContact', event.target.value)}
@@ -246,7 +312,8 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
         <div>
           <FieldLabel>备注</FieldLabel>
           <textarea
-            className="min-h-24 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15"
+            ref={setFieldRef('note')}
+            className={textareaClassName()}
             value={form.note}
             onChange={(event) => updateField('note', event.target.value)}
             placeholder="学习情况、上课偏好等"
@@ -263,11 +330,9 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
           是否活跃
         </label>
 
-        {error ? <p className="rounded-md bg-coral/10 px-3 py-2 text-sm text-coral">{error}</p> : null}
-
         <div className="grid grid-cols-2 gap-3">
           <ActionButton onClick={onCancel}>取消</ActionButton>
-          <ActionButton variant="primary" type="submit" disabled={!canSave}>
+          <ActionButton variant="primary" type="submit">
             保存学生
           </ActionButton>
         </div>

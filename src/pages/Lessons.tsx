@@ -4,10 +4,11 @@ import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
-import { Tag } from '../components/Tag';
 import { calculateLessonAmount, useLessons, type LessonInput } from '../store/useLessons';
 import { useStudents } from '../store/useStudents';
 import type { BillingType, Lesson, LessonStatus, Student } from '../types';
+
+type DurationMode = 'preset' | 'custom';
 
 type LessonFormState = {
   studentId: string;
@@ -15,6 +16,9 @@ type LessonFormState = {
   startTime: string;
   endTime: string;
   duration: string;
+  durationMode: DurationMode;
+  durationHours: string;
+  durationMinutes: string;
   rate: string;
   billingType: BillingType;
   amount: string;
@@ -24,6 +28,8 @@ type LessonFormState = {
   homework: string;
   note: string;
 };
+
+type LessonFormErrors = Partial<Record<'studentId' | 'date' | 'duration' | 'rate' | 'billingType' | 'status' | 'amount', string>>;
 
 const durationOptions = [1, 1.5, 2, 2.5];
 
@@ -46,6 +52,57 @@ interface LessonsProps {
 
 function todayString() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function durationToParts(duration: number) {
+  const totalMinutes = Math.max(0, Math.round(duration * 60));
+  return {
+    hours: Math.floor(totalMinutes / 60),
+    minutes: totalMinutes % 60,
+  };
+}
+
+function durationFromParts(hours: string, minutes: string) {
+  const parsedHours = Number(hours || 0);
+  const parsedMinutes = Number(minutes || 0);
+
+  if (
+    Number.isNaN(parsedHours) ||
+    Number.isNaN(parsedMinutes) ||
+    !Number.isInteger(parsedHours) ||
+    !Number.isInteger(parsedMinutes) ||
+    parsedHours < 0 ||
+    parsedMinutes < 0 ||
+    parsedMinutes >= 60
+  ) {
+    return '';
+  }
+
+  const duration = parsedHours + parsedMinutes / 60;
+  return duration > 0 ? String(duration) : '';
+}
+
+function isPresetDuration(duration: number) {
+  return durationOptions.some((option) => Math.abs(option - duration) < 0.01);
+}
+
+function formatDuration(duration: number) {
+  if (Number.isNaN(duration) || duration <= 0) {
+    return '0分钟';
+  }
+
+  const { hours, minutes } = durationToParts(duration);
+  const parts = [];
+
+  if (hours > 0) {
+    parts.push(`${hours}小时`);
+  }
+
+  if (minutes > 0) {
+    parts.push(`${minutes}分钟`);
+  }
+
+  return parts.join('') || '0分钟';
 }
 
 function addDurationToTime(startTime: string, duration: number) {
@@ -72,7 +129,7 @@ function calculateFormAmount(form: Pick<LessonFormState, 'duration' | 'rate' | '
     return '0';
   }
 
-  return String(calculateLessonAmount({ duration, rate, billingType: form.billingType, status: form.status }));
+  return String(Math.round(calculateLessonAmount({ duration, rate, billingType: form.billingType, status: form.status })));
 }
 
 function withAutoEndTime(form: LessonFormState) {
@@ -97,6 +154,7 @@ function withQuickComputed(form: LessonFormState) {
 function emptyForm(students: Student[]): LessonFormState {
   const firstStudent = students[0];
   const duration = firstStudent?.defaultDuration ?? 2;
+  const durationParts = durationToParts(duration);
   const rate = firstStudent?.defaultRate ?? 150;
   const billingType = firstStudent?.billingType ?? 'hourly';
   const status: LessonStatus = 'completed';
@@ -107,6 +165,9 @@ function emptyForm(students: Student[]): LessonFormState {
     startTime: '',
     endTime: '',
     duration: String(duration),
+    durationMode: isPresetDuration(duration) ? 'preset' : 'custom',
+    durationHours: String(durationParts.hours),
+    durationMinutes: String(durationParts.minutes),
     rate: String(rate),
     billingType,
     amount: String(calculateLessonAmount({ duration, rate, billingType, status })),
@@ -119,12 +180,17 @@ function emptyForm(students: Student[]): LessonFormState {
 }
 
 function lessonToForm(lesson: Lesson): LessonFormState {
+  const durationParts = durationToParts(lesson.duration);
+
   return {
     studentId: lesson.studentId,
     date: lesson.date,
     startTime: lesson.startTime ?? '',
     endTime: lesson.endTime ?? '',
     duration: String(lesson.duration),
+    durationMode: isPresetDuration(lesson.duration) ? 'preset' : 'custom',
+    durationHours: String(durationParts.hours),
+    durationMinutes: String(durationParts.minutes),
     rate: String(lesson.rate),
     billingType: lesson.billingType,
     amount: String(lesson.amount),
@@ -186,16 +252,50 @@ function FieldLabel({ children, required = false }: { children: string; required
   );
 }
 
-function inputClassName() {
-  return 'h-11 w-full rounded-md border border-line bg-white px-3 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15';
+function fieldClassName(hasError = false) {
+  return `h-11 w-full rounded-md border bg-white px-3 text-sm text-ink outline-none transition focus:ring-2 ${
+    hasError
+      ? 'border-coral focus:border-coral focus:ring-coral/15'
+      : 'border-line focus:border-mint focus:ring-mint/15'
+  }`;
+}
+
+function textareaClassName() {
+  return 'min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15';
+}
+
+function FieldError({ message }: { message?: string }) {
+  return message ? <p className="mt-1 text-xs text-coral">{message}</p> : null;
 }
 
 function amountPreviewText(form: LessonFormState) {
+  const durationText = formatDuration(Number(form.duration));
+
   if (form.billingType === 'hourly') {
-    return `${form.duration || 0} 小时 × ¥${form.rate || 0}/小时 = ¥${form.amount || 0}`;
+    return `${durationText} × ¥${form.rate || 0}/小时 = ¥${form.amount || 0}`;
   }
 
   return `每次 ¥${form.rate || 0} = ¥${form.amount || 0}`;
+}
+
+function statusBadgeClass(status: LessonStatus) {
+  const base = 'inline-flex h-7 items-center rounded-full border px-3 text-xs font-semibold';
+  const styles: Record<LessonStatus, string> = {
+    completed: 'border-mint/30 bg-mint/10 text-mint',
+    makeup: 'border-sky-200 bg-sky-50 text-sky-700',
+    trial: 'border-violet-200 bg-violet-50 text-violet-700',
+    leave: 'border-slate-200 bg-slate-100 text-slate-600',
+    cancelled: 'border-coral/25 bg-coral/10 text-coral',
+  };
+
+  return `${base} ${styles[status]}`;
+}
+
+function settlementBadgeClass(isSettled: boolean) {
+  const base = 'inline-flex h-7 items-center rounded-full border px-3 text-xs font-semibold';
+  return isSettled
+    ? `${base} border-mint/25 bg-mint/10 text-mint`
+    : `${base} border-coral/30 bg-coral/10 text-coral`;
 }
 
 interface LessonFormProps {
@@ -210,59 +310,164 @@ interface LessonFormProps {
 
 function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing, onCancel, onSave }: LessonFormProps) {
   const [form, setForm] = useState<LessonFormState>(() => (isEditing ? initialValue : withQuickComputed(initialValue)));
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<LessonFormErrors>({});
   const [isMoreOpen, setIsMoreOpen] = useState(defaultMoreOpen);
-  const durationInputRef = useRef<HTMLInputElement>(null);
+  const fieldRefs = useRef<
+    Partial<Record<keyof LessonFormErrors, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>>
+  >({});
+  const durationHoursRef = useRef<HTMLInputElement>(null);
   const selectedStudent = students.find((student) => student.id === form.studentId);
+  const isCustomDuration = form.durationMode === 'custom';
+
+  function setFieldRef(key: keyof LessonFormErrors) {
+    return (element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => {
+      fieldRefs.current[key] = element;
+    };
+  }
+
+  function clearErrors(...keys: (keyof LessonFormErrors)[]) {
+    setErrors((current) => {
+      const next = { ...current };
+      keys.forEach((key) => delete next[key]);
+      return next;
+    });
+  }
+
+  function focusField(key: keyof LessonFormErrors) {
+    window.setTimeout(() => {
+      const field = key === 'duration' ? durationHoursRef.current ?? fieldRefs.current.duration : fieldRefs.current[key];
+      field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      field?.focus({ preventScroll: true });
+    }, 0);
+  }
 
   function updateQuickFields(partial: Partial<LessonFormState>) {
-    setError('');
+    const errorKeys = Object.keys(partial).flatMap((key) => {
+      if (key === 'duration' || key === 'durationHours' || key === 'durationMinutes') {
+        return ['duration'];
+      }
+
+      if (key === 'studentId' || key === 'date' || key === 'rate' || key === 'billingType' || key === 'status' || key === 'amount') {
+        return [key];
+      }
+
+      return [];
+    }) as (keyof LessonFormErrors)[];
+
+    clearErrors(...errorKeys);
     setForm((current) => withQuickComputed({ ...current, ...partial }));
+  }
+
+  function updateDuration(duration: number, mode: DurationMode) {
+    const parts = durationToParts(duration);
+    updateQuickFields({
+      duration: String(duration),
+      durationMode: mode,
+      durationHours: String(parts.hours),
+      durationMinutes: String(parts.minutes),
+    });
+  }
+
+  function showCustomDuration() {
+    const parts = durationToParts(Number(form.duration));
+    updateQuickFields({
+      durationMode: 'custom',
+      durationHours: String(parts.hours),
+      durationMinutes: String(parts.minutes),
+    });
+    window.setTimeout(() => durationHoursRef.current?.focus(), 0);
+  }
+
+  function updateCustomDuration(partial: Partial<Pick<LessonFormState, 'durationHours' | 'durationMinutes'>>) {
+    const nextHours = partial.durationHours ?? form.durationHours;
+    const nextMinutes = partial.durationMinutes ?? form.durationMinutes;
+
+    updateQuickFields({
+      ...partial,
+      durationMode: 'custom',
+      duration: durationFromParts(nextHours, nextMinutes),
+    });
   }
 
   function handleStudentChange(studentId: string) {
     const student = students.find((item) => item.id === studentId);
     if (!student) {
       setForm((current) => ({ ...current, studentId }));
+      clearErrors('studentId');
       return;
     }
 
+    const durationParts = durationToParts(student.defaultDuration);
     updateQuickFields({
       studentId,
       duration: String(student.defaultDuration),
+      durationMode: isPresetDuration(student.defaultDuration) ? 'preset' : 'custom',
+      durationHours: String(durationParts.hours),
+      durationMinutes: String(durationParts.minutes),
       rate: String(student.defaultRate),
       billingType: student.billingType,
     });
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function validateForm() {
+    const nextErrors: LessonFormErrors = {};
+    const duration = Number(form.duration);
+    const rate = Number(form.rate);
+    const amount = Number(form.amount);
+    const minutes = Number(form.durationMinutes || 0);
 
     if (!form.studentId) {
-      setError('请选择学生。');
-      return;
+      nextErrors.studentId = '请选择学生';
     }
 
     if (!form.date) {
-      setError('请选择日期。');
+      nextErrors.date = '请选择日期';
+    }
+
+    if (!form.duration || duration <= 0 || Number.isNaN(duration)) {
+      nextErrors.duration = '请输入上课时长';
+    } else if (isCustomDuration && (Number.isNaN(minutes) || !Number.isInteger(minutes) || minutes < 0 || minutes >= 60)) {
+      nextErrors.duration = '分钟需要填写 0 到 59 之间的整数';
+    }
+
+    if (!form.rate) {
+      nextErrors.rate = '请输入单价';
+    } else if (rate < 0 || Number.isNaN(rate)) {
+      nextErrors.rate = '单价需要是数字且不能小于 0';
+    }
+
+    if (!form.billingType) {
+      nextErrors.billingType = '请选择计费方式';
+    }
+
+    if (!form.status) {
+      nextErrors.status = '请选择课程状态';
+    }
+
+    if (!form.amount) {
+      nextErrors.amount = '请输入金额';
+    } else if (amount < 0 || Number.isNaN(amount)) {
+      nextErrors.amount = '金额需要是数字且不能小于 0';
+    }
+
+    return nextErrors;
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextErrors = validateForm();
+    const firstError = Object.keys(nextErrors)[0] as keyof LessonFormErrors | undefined;
+
+    if (firstError) {
+      setErrors(nextErrors);
+      if (['rate', 'billingType', 'status', 'amount'].includes(firstError)) {
+        setIsMoreOpen(true);
+      }
+      focusField(firstError);
       return;
     }
 
-    if (Number(form.duration) <= 0 || Number.isNaN(Number(form.duration))) {
-      setError('上课时长需要是大于 0 的数字。');
-      return;
-    }
-
-    if (Number(form.rate) < 0 || Number.isNaN(Number(form.rate))) {
-      setError('单价需要是数字。');
-      return;
-    }
-
-    if (Number(form.amount) < 0 || Number.isNaN(Number(form.amount))) {
-      setError('金额需要是数字。');
-      return;
-    }
-
+    setErrors({});
     onSave(toLessonInput(form));
   }
 
@@ -287,10 +492,10 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
         <div>
           <FieldLabel required>学生</FieldLabel>
           <select
-            className={inputClassName()}
+            ref={setFieldRef('studentId')}
+            className={fieldClassName(Boolean(errors.studentId))}
             value={form.studentId}
             onChange={(event) => handleStudentChange(event.target.value)}
-            required
           >
             <option value="">请选择学生</option>
             {students.map((student) => (
@@ -299,6 +504,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
               </option>
             ))}
           </select>
+          <FieldError message={errors.studentId} />
           <p className="mt-2 text-xs text-slate-500">科目：{selectedStudent?.subject ?? '选择学生后显示'}</p>
         </div>
 
@@ -306,17 +512,18 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
           <div>
             <FieldLabel required>日期</FieldLabel>
             <input
-              className={inputClassName()}
+              ref={setFieldRef('date')}
+              className={fieldClassName(Boolean(errors.date))}
               type="date"
               value={form.date}
-              onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
-              required
+              onChange={(event) => updateQuickFields({ date: event.target.value })}
             />
+            <FieldError message={errors.date} />
           </div>
           <div>
             <FieldLabel>开始时间</FieldLabel>
             <input
-              className={inputClassName()}
+              className={fieldClassName()}
               type="time"
               value={form.startTime}
               onChange={(event) => updateQuickFields({ startTime: event.target.value })}
@@ -328,41 +535,69 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
           <FieldLabel required>上课时长</FieldLabel>
           <div className="mb-3 grid grid-cols-5 gap-2">
             {durationOptions.map((duration) => {
-              const active = Number(form.duration) === duration;
+              const active = form.durationMode === 'preset' && Math.abs(Number(form.duration) - duration) < 0.01;
 
               return (
                 <button
                   key={duration}
                   type="button"
-                  onClick={() => updateQuickFields({ duration: String(duration) })}
+                  onClick={() => updateDuration(duration, 'preset')}
                   className={`h-9 rounded-md border px-1 text-xs font-medium ${
                     active ? 'border-mint bg-mint text-white' : 'border-line bg-white text-slate-600'
                   }`}
                 >
-                  {duration}h
+                  {duration}小时
                 </button>
               );
             })}
             <button
               type="button"
-              onClick={() => durationInputRef.current?.focus()}
-              className="h-9 rounded-md border border-line bg-white px-1 text-xs font-medium text-slate-600"
+              onClick={showCustomDuration}
+              className={`h-9 rounded-md border px-1 text-xs font-medium ${
+                isCustomDuration ? 'border-mint bg-mint text-white' : 'border-line bg-white text-slate-600'
+              }`}
             >
               自定义
             </button>
           </div>
-          <input
-            ref={durationInputRef}
-            className={inputClassName()}
-            type="number"
-            min="0.5"
-            step="0.5"
-            value={form.duration}
-            onChange={(event) => updateQuickFields({ duration: event.target.value })}
-            required
-          />
+          {isCustomDuration ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <input
+                  ref={durationHoursRef}
+                  className={fieldClassName(Boolean(errors.duration))}
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={form.durationHours}
+                  onChange={(event) => updateCustomDuration({ durationHours: event.target.value })}
+                  aria-label="小时"
+                  placeholder="小时"
+                />
+                <p className="mt-1 text-xs text-slate-500">小时</p>
+              </div>
+              <div>
+                <input
+                  ref={setFieldRef('duration')}
+                  className={fieldClassName(Boolean(errors.duration))}
+                  type="number"
+                  min="0"
+                  max="59"
+                  step="1"
+                  value={form.durationMinutes}
+                  onChange={(event) => updateCustomDuration({ durationMinutes: event.target.value })}
+                  aria-label="分钟"
+                  placeholder="分钟"
+                />
+                <p className="mt-1 text-xs text-slate-500">分钟</p>
+              </div>
+            </div>
+          ) : null}
+          <FieldError message={errors.duration} />
           <p className="mt-2 text-xs text-slate-500">
-            {form.startTime ? `预计结束：${form.endTime || '待计算'}` : '不填开始时间也可以保存。'}
+            {form.startTime
+              ? `时长 ${formatDuration(Number(form.duration))}，预计结束：${form.endTime || '待计算'}`
+              : `当前时长：${formatDuration(Number(form.duration))}。不填开始时间也可以保存。`}
           </p>
         </div>
 
@@ -387,9 +622,10 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
           <div className="space-y-4 rounded-lg border border-line bg-white p-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldLabel>课程状态</FieldLabel>
+                <FieldLabel required>课程状态</FieldLabel>
                 <select
-                  className={inputClassName()}
+                  ref={setFieldRef('status')}
+                  className={fieldClassName(Boolean(errors.status))}
                   value={form.status}
                   onChange={(event) => updateQuickFields({ status: event.target.value as LessonStatus })}
                 >
@@ -399,17 +635,20 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
                   <option value="makeup">补课</option>
                   <option value="trial">试课</option>
                 </select>
+                <FieldError message={errors.status} />
               </div>
               <div>
-                <FieldLabel>计费方式</FieldLabel>
+                <FieldLabel required>计费方式</FieldLabel>
                 <select
-                  className={inputClassName()}
+                  ref={setFieldRef('billingType')}
+                  className={fieldClassName(Boolean(errors.billingType))}
                   value={form.billingType}
                   onChange={(event) => updateQuickFields({ billingType: event.target.value as BillingType })}
                 >
                   <option value="hourly">按小时</option>
                   <option value="per_session">按次</option>
                 </select>
+                <FieldError message={errors.billingType} />
               </div>
             </div>
 
@@ -417,25 +656,31 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
               <div>
                 <FieldLabel>单价</FieldLabel>
                 <input
-                  className={inputClassName()}
+                  ref={setFieldRef('rate')}
+                  className={fieldClassName(Boolean(errors.rate))}
                   type="number"
                   min="0"
                   step="1"
                   value={form.rate}
                   onChange={(event) => updateQuickFields({ rate: event.target.value })}
                 />
+                <FieldError message={errors.rate} />
               </div>
               <div>
                 <FieldLabel required>金额</FieldLabel>
                 <input
-                  className={inputClassName()}
+                  ref={setFieldRef('amount')}
+                  className={fieldClassName(Boolean(errors.amount))}
                   type="number"
                   min="0"
                   step="1"
                   value={form.amount}
-                  onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-                  required
+                  onChange={(event) => {
+                    clearErrors('amount');
+                    setForm((current) => ({ ...current, amount: event.target.value }));
+                  }}
                 />
+                <FieldError message={errors.amount} />
               </div>
             </div>
 
@@ -452,7 +697,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
             <div>
               <FieldLabel>课堂内容</FieldLabel>
               <textarea
-                className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15"
+                className={textareaClassName()}
                 value={form.content}
                 onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
                 placeholder="本节课讲了哪些内容"
@@ -462,7 +707,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
             <div>
               <FieldLabel>作业</FieldLabel>
               <textarea
-                className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15"
+                className={textareaClassName()}
                 value={form.homework}
                 onChange={(event) => setForm((current) => ({ ...current, homework: event.target.value }))}
                 placeholder="布置的练习或复习任务"
@@ -472,7 +717,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
             <div>
               <FieldLabel>备注</FieldLabel>
               <textarea
-                className="min-h-20 w-full rounded-md border border-line bg-white px-3 py-2 text-sm text-ink outline-none transition focus:border-mint focus:ring-2 focus:ring-mint/15"
+                className={textareaClassName()}
                 value={form.note}
                 onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
                 placeholder="特殊情况、沟通记录等"
@@ -481,11 +726,9 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
           </div>
         ) : null}
 
-        {error ? <p className="rounded-md bg-coral/10 px-3 py-2 text-sm text-coral">{error}</p> : null}
-
         <div className="grid grid-cols-2 gap-3">
           <ActionButton onClick={onCancel}>取消</ActionButton>
-          <ActionButton variant="primary" type="submit" disabled={students.length === 0}>
+          <ActionButton variant="primary" type="submit">
             保存课时
           </ActionButton>
         </div>
@@ -523,14 +766,14 @@ function LessonCard({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <Tag active>{statusLabel[lesson.status]}</Tag>
-        <Tag>{lesson.isSettled ? '已结算' : '未结算'}</Tag>
+        <span className={statusBadgeClass(lesson.status)}>{statusLabel[lesson.status]}</span>
+        <span className={settlementBadgeClass(lesson.isSettled)}>{lesson.isSettled ? '已结算' : '未结算'}</span>
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div>
           <dt className="text-slate-500">时长</dt>
-          <dd className="mt-1 font-semibold">{lesson.duration}小时</dd>
+          <dd className="mt-1 font-semibold">{formatDuration(lesson.duration)}</dd>
         </div>
         <div>
           <dt className="text-slate-500">单价</dt>
