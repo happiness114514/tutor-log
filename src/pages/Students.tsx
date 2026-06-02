@@ -1,5 +1,5 @@
 import { Edit2, Plus, Trash2, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
@@ -414,7 +414,12 @@ function StudentCard({
   );
 }
 
-export function Students() {
+interface StudentsProps {
+  openCreateRequest?: boolean;
+  onCreateRequestConsumed?: () => void;
+}
+
+export function Students({ openCreateRequest = false, onCreateRequestConsumed }: StudentsProps) {
   const { students, addStudent, updateStudent, deleteStudent } = useStudents();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -423,6 +428,13 @@ export function Students() {
     setEditingStudent(null);
     setIsFormOpen(true);
   }
+
+  useEffect(() => {
+    if (openCreateRequest) {
+      openCreateForm();
+      onCreateRequestConsumed?.();
+    }
+  }, [openCreateRequest, onCreateRequestConsumed]);
 
   function openEditForm(student: Student) {
     setEditingStudent(student);

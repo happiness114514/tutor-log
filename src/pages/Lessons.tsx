@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, Edit2, Plus, Trash2, X } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
@@ -56,6 +56,8 @@ const trialFeeModeLabel: Record<TrialFeeMode, string> = {
 
 interface LessonsProps {
   onNavigateToStudents: () => void;
+  openCreateRequest?: boolean;
+  onCreateRequestConsumed?: () => void;
 }
 
 function todayString() {
@@ -983,7 +985,7 @@ function LessonCard({
   );
 }
 
-export function Lessons({ onNavigateToStudents }: LessonsProps) {
+export function Lessons({ onNavigateToStudents, openCreateRequest = false, onCreateRequestConsumed }: LessonsProps) {
   const { students } = useStudents();
   const { lessons, addLesson, updateLesson, deleteLesson } = useLessons();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -995,6 +997,13 @@ export function Lessons({ onNavigateToStudents }: LessonsProps) {
     setEditingLesson(null);
     setIsFormOpen(true);
   }
+
+  useEffect(() => {
+    if (openCreateRequest) {
+      openCreateForm();
+      onCreateRequestConsumed?.();
+    }
+  }, [openCreateRequest, onCreateRequestConsumed]);
 
   function openEditForm(lesson: Lesson) {
     setEditingLesson(lesson);

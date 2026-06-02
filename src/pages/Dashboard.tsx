@@ -15,8 +15,8 @@ import {
 } from '../utils/dashboardStats';
 
 interface DashboardProps {
-  onNavigateToLessons: () => void;
-  onNavigateToStudents: () => void;
+  onCreateLesson: () => void;
+  onCreateStudent: () => void;
 }
 
 const toneClass = {
@@ -42,7 +42,7 @@ function timeText(lesson: Lesson) {
   return '未填写时间';
 }
 
-export function Dashboard({ onNavigateToLessons, onNavigateToStudents }: DashboardProps) {
+export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
   const { students } = useStudents();
   const { lessons } = useLessons();
   const stats = getDashboardStats(students, lessons);
@@ -63,7 +63,7 @@ export function Dashboard({ onNavigateToLessons, onNavigateToStudents }: Dashboa
       {students.length === 0 ? (
         <Card className="mb-4">
           <p className="text-sm text-slate-600">先添加学生，开始记录你的家教课时。</p>
-          <ActionButton variant="primary" className="mt-4 w-full" onClick={onNavigateToStudents}>
+          <ActionButton variant="primary" className="mt-4 w-full" onClick={onCreateStudent}>
             新增学生
           </ActionButton>
         </Card>
@@ -79,6 +79,41 @@ export function Dashboard({ onNavigateToLessons, onNavigateToStudents }: Dashboa
           </Card>
         ))}
       </section>
+
+      <SectionTitle>快捷操作</SectionTitle>
+      <div className="grid gap-3">
+        <button
+          type="button"
+          onClick={onCreateLesson}
+          className="rounded-lg border border-mint bg-mint p-4 text-left text-white shadow-card"
+        >
+          <p className="text-base font-semibold">新增课时</p>
+          <p className="mt-1 text-sm text-white/80">快速记录一节课</p>
+        </button>
+        <button
+          type="button"
+          onClick={onCreateStudent}
+          className="rounded-lg border border-line bg-white p-4 text-left text-ink shadow-card"
+        >
+          <p className="text-base font-semibold">新增学生</p>
+          <p className="mt-1 text-sm text-slate-500">添加新的家教学生</p>
+        </button>
+      </div>
+
+      <SectionTitle>待处理</SectionTitle>
+      <Card>
+        {unsettledSummary.length === 0 ? (
+          <p className="text-sm text-slate-500">暂无待处理事项。</p>
+        ) : (
+          <div className="divide-y divide-line">
+            {unsettledSummary.map((summary) => (
+              <p key={summary.studentId} className="py-3 first:pt-0 last:pb-0 text-sm text-slate-700">
+                {summary.studentName}有 {summary.lessonCount} 节课未结算，共 {formatMoney(summary.amount)}
+              </p>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <SectionTitle>最近记录</SectionTitle>
       <Card>
@@ -111,29 +146,6 @@ export function Dashboard({ onNavigateToLessons, onNavigateToStudents }: Dashboa
           </div>
         )}
       </Card>
-
-      <SectionTitle>待处理</SectionTitle>
-      <Card>
-        {unsettledSummary.length === 0 ? (
-          <p className="text-sm text-slate-500">暂无待处理事项。</p>
-        ) : (
-          <div className="divide-y divide-line">
-            {unsettledSummary.map((summary) => (
-              <p key={summary.studentId} className="py-3 first:pt-0 last:pb-0 text-sm text-slate-700">
-                {summary.studentName}有 {summary.lessonCount} 节课未结算，共 {formatMoney(summary.amount)}
-              </p>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <SectionTitle>快捷操作</SectionTitle>
-      <div className="grid grid-cols-2 gap-2">
-        <ActionButton variant="primary" onClick={onNavigateToLessons}>
-          新增课时
-        </ActionButton>
-        <ActionButton onClick={onNavigateToStudents}>新增学生</ActionButton>
-      </div>
     </div>
   );
 }
