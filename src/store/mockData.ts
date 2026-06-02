@@ -1,23 +1,4 @@
-import type { Course, SettlementItem, StatCardData, Student } from '../types';
-
-export const dashboardStats: StatCardData[] = [
-  { label: '本月应收', value: '¥3200', tone: 'mint' },
-  { label: '本月已收', value: '¥2400', tone: 'blue' },
-  { label: '未结算', value: '¥800', tone: 'coral' },
-  { label: '本月课时', value: '21h', tone: 'sunshine' },
-];
-
-export const todayCourse: Course = {
-  id: 'course-today-1',
-  time: '19:00-21:00',
-  studentName: '小明',
-  subject: '初二数学',
-  type: '固定课程',
-  reminder: '提前30分钟提醒',
-  status: '待上课',
-};
-
-export const todos = ['小红有 3 节课未结算，共 ¥900', '小明有 1 节课待记录'];
+import type { Course, SettlementItem, Student } from '../types';
 
 export const courses: Course[] = [
   {

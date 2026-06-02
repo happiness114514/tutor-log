@@ -11,7 +11,12 @@ export function App() {
   const [activePage, setActivePage] = useActivePage();
 
   const pages = {
-    dashboard: <Dashboard />,
+    dashboard: (
+      <Dashboard
+        onNavigateToLessons={() => setActivePage('lessons')}
+        onNavigateToStudents={() => setActivePage('students')}
+      />
+    ),
     schedule: <Schedule />,
     lessons: <Lessons onNavigateToStudents={() => setActivePage('students')} />,
     students: <Students />,

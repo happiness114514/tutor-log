@@ -4,12 +4,6 @@ export type LessonStatus = 'completed' | 'cancelled' | 'leave' | 'makeup' | 'tri
 
 export type TrialFeeMode = 'free' | 'half' | 'normal' | 'custom';
 
-export interface StatCardData {
-  label: string;
-  value: string;
-  tone: 'mint' | 'coral' | 'sunshine' | 'blue';
-}
-
 export interface Course {
   id: string;
   time: string;
