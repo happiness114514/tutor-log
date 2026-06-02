@@ -62,25 +62,36 @@ export const lessonRecords: LessonRecord[] = [
   },
 ];
 
-export const students: Student[] = [
+export const defaultStudents: Student[] = [
   {
     id: 'student-1',
     name: '小明',
-    gradeSubject: '初二数学',
-    defaultRate: '¥150/h',
-    defaultDuration: '2小时/次',
-    monthlyHours: '8小时',
-    unsettledAmount: '¥600',
-    latestLesson: '6月1日',
+    grade: '初二',
+    subject: '数学',
+    defaultRate: 150,
+    defaultDuration: 2,
+    billingType: 'hourly',
+    settlementCycle: 'monthly',
+    parentContact: '13800000001',
+    note: '基础不错，近期重点练习几何题。',
+    isActive: true,
+    createdAt: '2026-06-01T10:00:00.000Z',
+    updatedAt: '2026-06-01T10:00:00.000Z',
   },
   {
     id: 'student-2',
     name: '小红',
-    gradeSubject: '高一英语',
-    defaultRate: '¥120/h',
-    defaultDuration: '2小时/次',
-    monthlyHours: '6小时',
-    unsettledAmount: '¥240',
+    grade: '高一',
+    subject: '英语',
+    defaultRate: 120,
+    defaultDuration: 2,
+    billingType: 'per_session',
+    settlementCycle: 'weekly',
+    parentContact: '13800000002',
+    note: '每周补一次阅读和语法。',
+    isActive: true,
+    createdAt: '2026-05-30T10:00:00.000Z',
+    updatedAt: '2026-05-30T10:00:00.000Z',
   },
 ];
 

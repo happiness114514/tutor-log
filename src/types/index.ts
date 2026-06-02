@@ -30,16 +30,25 @@ export interface LessonRecord {
   status: LessonStatus;
 }
 
-export interface Student {
+export type BillingType = 'hourly' | 'per_session';
+
+export type SettlementCycle = 'per_session' | 'weekly' | 'monthly' | 'custom';
+
+export type Student = {
   id: string;
   name: string;
-  gradeSubject: string;
-  defaultRate: string;
-  defaultDuration: string;
-  monthlyHours: string;
-  unsettledAmount: string;
-  latestLesson?: string;
-}
+  grade?: string;
+  subject?: string;
+  defaultRate: number;
+  defaultDuration: number;
+  billingType: BillingType;
+  settlementCycle: SettlementCycle;
+  parentContact?: string;
+  note?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export interface SettlementItem {
   id: string;
