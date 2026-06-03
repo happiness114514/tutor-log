@@ -7,6 +7,8 @@ import { PageHeader } from '../components/PageHeader';
 import { useLessons, type LessonInput } from '../store/useLessons';
 import { useStudents } from '../store/useStudents';
 import type { BillingType, Lesson, LessonStatus, Student, TrialFeeMode } from '../types';
+import { formatMoney } from '../utils/dashboardStats';
+import { showToast } from '../utils/toast';
 
 type DurationMode = 'preset' | 'custom';
 
@@ -356,30 +358,30 @@ function amountPreviewText(form: LessonFormState) {
   });
 
   if (form.status === 'leave' || form.status === 'cancelled') {
-    return '本节不计费，费用 ¥0';
+    return `本节不计费，费用 ${formatMoney(0)}`;
   }
 
   if (form.status === 'trial') {
     if (form.trialFeeMode === 'free') {
-      return '试课免费，本节费用 ¥0';
+      return `试课免费，本节费用 ${formatMoney(0)}`;
     }
 
     if (form.trialFeeMode === 'half') {
-      return `试课半价，原价 ¥${normalAmount}，本节 ¥${form.amount || 0}`;
+      return `试课半价，原价 ${formatMoney(normalAmount)}，本节 ${formatMoney(Number(form.amount || 0))}`;
     }
 
     if (form.trialFeeMode === 'normal') {
-      return `试课按正常计费，本节 ¥${form.amount || 0}`;
+      return `试课按正常计费，本节 ${formatMoney(Number(form.amount || 0))}`;
     }
 
-    return `试课自定义费用，本节 ¥${form.amount || 0}`;
+    return `试课自定义费用，本节 ${formatMoney(Number(form.amount || 0))}`;
   }
 
   if (form.billingType === 'hourly') {
-    return `${durationText} × ¥${form.rate || 0}/小时 = ¥${form.amount || 0}`;
+    return `${durationText} × ${formatMoney(Number(form.rate || 0))}/小时 = ${formatMoney(Number(form.amount || 0))}`;
   }
 
-  return `每次 ¥${form.rate || 0} = ¥${form.amount || 0}`;
+  return `每次 ${formatMoney(Number(form.rate || 0))} = ${formatMoney(Number(form.amount || 0))}`;
 }
 
 function statusBadgeClass(status: LessonStatus) {
@@ -938,7 +940,7 @@ function LessonCard({
             {student?.name ?? '未知学生'} · {subjectText}
           </p>
         </div>
-        <p className="text-xl font-bold text-coral">¥{lesson.amount}</p>
+        <p className="text-xl font-bold text-coral">{formatMoney(lesson.amount)}</p>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -953,7 +955,7 @@ function LessonCard({
         </div>
         <div>
           <dt className="text-slate-500">单价</dt>
-          <dd className="mt-1 font-semibold">¥{lesson.rate}</dd>
+          <dd className="mt-1 font-semibold">{formatMoney(lesson.rate)}</dd>
         </div>
         <div>
           <dt className="text-slate-500">计费方式</dt>
@@ -1050,8 +1052,10 @@ export function Lessons({
   function handleSave(input: LessonInput) {
     if (editingLesson) {
       updateLesson(editingLesson.id, input);
+      showToast('课时已更新');
     } else {
       addLesson(input);
+      showToast('课时已保存');
     }
 
     closeForm();
@@ -1062,6 +1066,7 @@ export function Lessons({
     const confirmed = window.confirm(`确定删除 ${student?.name ?? '该学生'} 在 ${lesson.date} 的课时记录吗？`);
     if (confirmed) {
       deleteLesson(lesson.id);
+      showToast('课时已删除');
     }
   }
 

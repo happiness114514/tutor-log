@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { AppShell } from './components/AppShell';
+import { ToastHost } from './components/ToastHost';
 import { Dashboard } from './pages/Dashboard';
 import { Lessons } from './pages/Lessons';
 import { Schedule } from './pages/Schedule';
@@ -42,7 +43,7 @@ export function App() {
     schedule: <Schedule onCreateStudent={openNewStudent} onOpenLessonEditor={openLessonEditor} />,
     lessons: (
       <Lessons
-        onNavigateToStudents={() => setActivePage('students')}
+        onNavigateToStudents={openNewStudent}
         openCreateRequest={pendingAction === 'openNewLesson'}
         onCreateRequestConsumed={() => setPendingAction(null)}
         openEditLessonId={pendingEditLessonId}
@@ -55,13 +56,16 @@ export function App() {
         onCreateRequestConsumed={() => setPendingAction(null)}
       />
     ),
-    settlement: <Settlement onNavigateToLessons={() => setActivePage('lessons')} />,
+    settlement: <Settlement onNavigateToLessons={openNewLesson} />,
   };
 
   return (
-    <AppShell
-      content={pages[activePage]}
-      nav={<BottomNav activePage={activePage} onChange={setActivePage} />}
-    />
+    <>
+      <AppShell
+        content={pages[activePage]}
+        nav={<BottomNav activePage={activePage} onChange={setActivePage} />}
+      />
+      <ToastHost />
+    </>
   );
 }

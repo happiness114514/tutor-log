@@ -15,6 +15,7 @@ import {
   getUnsettledLessonsByStudent,
   type SettlementStudentSummary,
 } from '../utils/settlementStats';
+import { showToast } from '../utils/toast';
 
 interface SettlementProps {
   onNavigateToLessons: () => void;
@@ -123,9 +124,11 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
       await copyText(text);
       setManualCopyText('');
       setNotice('结算明细已复制');
+      showToast('结算明细已复制');
     } catch {
       setManualCopyText(text);
       setNotice('自动复制失败，请从下方文本框手动复制');
+      showToast('自动复制失败，请手动复制', 'error');
     }
   }
 
@@ -139,6 +142,7 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
     setExpandedStudentId(null);
     setManualCopyText('');
     setNotice(`${summary.studentName} 的未结算课时已标记为已收款`);
+    showToast('已标记为已收款');
   }
 
   function handleSettleLesson(summary: SettlementStudentSummary, lesson: Lesson) {
@@ -150,6 +154,7 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
     markLessonsSettled([lesson.id]);
     setManualCopyText('');
     setNotice(`${summary.studentName} ${lesson.date} 的课时已标记为已收款`);
+    showToast('已标记本节已收款');
   }
 
   const overviewItems = [

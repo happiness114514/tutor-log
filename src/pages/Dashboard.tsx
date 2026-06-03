@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
@@ -5,6 +6,7 @@ import { SectionTitle } from '../components/SectionTitle';
 import { useLessons } from '../store/useLessons';
 import { useStudents } from '../store/useStudents';
 import type { Lesson } from '../types';
+import { exportLocalData, importLocalData, parseBackupFile } from '../utils/backup';
 import {
   formatDuration,
   formatMoney,
@@ -13,6 +15,7 @@ import {
   getStudentById,
   getUnsettledSummaryByStudent,
 } from '../utils/dashboardStats';
+import { queueToast, showToast } from '../utils/toast';
 
 interface DashboardProps {
   onCreateLesson: () => void;
@@ -45,6 +48,7 @@ function timeText(lesson: Lesson) {
 export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
   const { students } = useStudents();
   const { lessons } = useLessons();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const stats = getDashboardStats(students, lessons);
   const recentLessons = getRecentLessons(lessons);
   const unsettledSummary = getUnsettledSummaryByStudent(students, lessons);
@@ -55,6 +59,35 @@ export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
     { label: '当前未结算', value: formatMoney(stats.unsettledAmount), tone: 'coral' as const },
     { label: '本月课时', value: formatDuration(stats.monthlyDuration), tone: 'sunshine' as const },
   ];
+
+  function handleExport() {
+    exportLocalData();
+    showToast('数据已导出');
+  }
+
+  async function handleImportFile(file?: File) {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const backup = await parseBackupFile(file);
+      const confirmed = window.confirm('导入数据会覆盖当前本地数据，确定继续吗？');
+      if (!confirmed) {
+        return;
+      }
+
+      importLocalData(backup);
+      queueToast('数据导入成功');
+      window.location.reload();
+    } catch {
+      showToast('导入失败，请检查文件格式。', 'error');
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }
 
   return (
     <div>
@@ -145,6 +178,24 @@ export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
             })}
           </div>
         )}
+      </Card>
+
+      <SectionTitle>数据管理</SectionTitle>
+      <Card>
+        <p className="text-sm text-slate-600">备份或恢复本机保存的学生、课时记录和课程表数据。</p>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <ActionButton variant="primary" onClick={handleExport}>
+            导出数据
+          </ActionButton>
+          <ActionButton onClick={() => fileInputRef.current?.click()}>导入数据</ActionButton>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(event) => void handleImportFile(event.target.files?.[0])}
+        />
       </Card>
     </div>
   );

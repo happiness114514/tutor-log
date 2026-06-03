@@ -6,6 +6,8 @@ import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
 import { useStudents, type StudentInput } from '../store/useStudents';
 import type { BillingType, SettlementCycle, Student } from '../types';
+import { formatMoney } from '../utils/dashboardStats';
+import { showToast } from '../utils/toast';
 
 type StudentFormState = {
   name: string;
@@ -374,7 +376,7 @@ function StudentCard({
       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div>
           <dt className="text-slate-500">默认单价</dt>
-          <dd className="mt-1 font-semibold">¥{student.defaultRate}</dd>
+          <dd className="mt-1 font-semibold">{formatMoney(student.defaultRate)}</dd>
         </div>
         <div>
           <dt className="text-slate-500">默认时长</dt>
@@ -461,8 +463,10 @@ export function Students({ openCreateRequest = false, onCreateRequestConsumed }:
   function handleSave(input: StudentInput) {
     if (editingStudent) {
       updateStudent(editingStudent.id, input);
+      showToast('学生已更新');
     } else {
       addStudent(input);
+      showToast('学生已保存');
     }
 
     closeForm();
@@ -472,6 +476,7 @@ export function Students({ openCreateRequest = false, onCreateRequestConsumed }:
     const confirmed = window.confirm(`确定删除学生「${student.name}」吗？`);
     if (confirmed) {
       deleteStudent(student.id);
+      showToast('学生已删除');
     }
   }
 
@@ -497,7 +502,7 @@ export function Students({ openCreateRequest = false, onCreateRequestConsumed }:
 
       {students.length === 0 ? (
         <Card className="py-10 text-center">
-          <p className="text-sm text-slate-500">还没有学生，先点击上方按钮添加第一个学生吧。</p>
+          <p className="text-sm text-slate-500">还没有学生，先添加第一个学生吧。</p>
         </Card>
       ) : (
         <div className="space-y-3">

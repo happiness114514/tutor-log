@@ -25,6 +25,7 @@ import {
   hasGeneratedLesson,
   type ScheduleInstance,
 } from '../utils/scheduleUtils';
+import { showToast } from '../utils/toast';
 
 type ScheduleView = 'today' | 'week' | 'recurring';
 
@@ -734,9 +735,11 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
     if (editingSchedule) {
       updateSchedule(editingSchedule.id, input);
       setNotice('课程已更新');
+      showToast('课程已更新');
     } else {
       addSchedule(input);
       setNotice('课程已保存');
+      showToast('课程已保存');
     }
 
     closeForm();
@@ -750,11 +753,13 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
 
     deleteSchedule(schedule.id);
     setNotice('课程安排已删除');
+    showToast('课程安排已删除');
   }
 
   function handleToggleStatus(schedule: ScheduleModel) {
     updateScheduleStatus(schedule.id, schedule.status === 'active' ? 'paused' : 'active');
     setNotice(schedule.status === 'active' ? '固定课程已暂停' : '固定课程已恢复');
+    showToast(schedule.status === 'active' ? '固定课程已暂停' : '固定课程已恢复', 'info');
   }
 
   function handleRecordLesson(instance: ScheduleInstance) {
@@ -766,6 +771,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
     const lesson = addLesson(createLessonFromSchedule(instance.schedule, instance.date));
     setCreatedLessonId(lesson.id);
     setNotice('课时已记录，可在记录页补充课堂内容。');
+    showToast('课时已记录');
   }
 
   function renderInstanceList(instances: ScheduleInstance[], emptyText: string) {
