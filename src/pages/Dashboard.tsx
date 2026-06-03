@@ -5,6 +5,7 @@ import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
 import { useLessons } from '../store/useLessons';
+import { useSchedules } from '../store/useSchedules';
 import { useStudents } from '../store/useStudents';
 import type { Lesson } from '../types';
 import { exportLocalData, importLocalData, parseBackupFile } from '../utils/backup';
@@ -14,13 +15,19 @@ import {
   getDashboardStats,
   getRecentLessons,
   getStudentById,
-  getUnsettledSummaryByStudent,
 } from '../utils/dashboardStats';
+import {
+  createLessonFromSchedule,
+  getTodayTodos,
+  hasGeneratedLesson,
+  type TodayTodo,
+} from '../utils/scheduleUtils';
 import { queueToast, showToast } from '../utils/toast';
 
 interface DashboardProps {
   onCreateLesson: () => void;
   onCreateStudent: () => void;
+  onNavigateToSettlement: () => void;
 }
 
 function todayLabel() {
@@ -39,13 +46,28 @@ function timeText(lesson: Lesson) {
   return '未填写时间';
 }
 
-export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
+function todoBadgeClassName(type: TodayTodo['type']) {
+  if (type === 'ended_unrecorded') {
+    return 'bg-amber-50 text-amber-800';
+  }
+
+  if (type === 'upcoming') {
+    return 'bg-sky-50 text-sky-700';
+  }
+
+  return 'bg-orange-50 text-orange-700';
+}
+
+export function Dashboard({ onCreateLesson, onCreateStudent, onNavigateToSettlement }: DashboardProps) {
   const { students } = useStudents();
-  const { lessons } = useLessons();
+  const { lessons, addLesson } = useLessons();
+  const { schedules } = useSchedules();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stats = getDashboardStats(students, lessons);
   const recentLessons = getRecentLessons(lessons);
-  const unsettledSummary = getUnsettledSummaryByStudent(students, lessons);
+  const todos = getTodayTodos(schedules, lessons, students);
+  const visibleTodos = todos.slice(0, 5);
+  const hiddenTodoCount = todos.length - visibleTodos.length;
 
   const statCards = [
     { label: '本月应收', value: formatMoney(stats.monthlyReceivable) },
@@ -81,6 +103,20 @@ export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
         fileInputRef.current.value = '';
       }
     }
+  }
+
+  function handleRecordTodo(todo: TodayTodo) {
+    if (todo.type !== 'ended_unrecorded' || !todo.instance) {
+      return;
+    }
+
+    if (hasGeneratedLesson(todo.instance.schedule.id, todo.instance.date, lessons)) {
+      showToast('这节课已经记录过了', 'info');
+      return;
+    }
+
+    addLesson(createLessonFromSchedule(todo.instance.schedule, todo.instance.date));
+    showToast('课时已记录');
   }
 
   return (
@@ -139,17 +175,35 @@ export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
         </button>
       </div>
 
-      <SectionTitle>待处理</SectionTitle>
+      <SectionTitle>今日待办</SectionTitle>
       <Card>
-        {unsettledSummary.length === 0 ? (
-          <p className="text-sm text-slate-500">暂无待处理事项。</p>
+        {visibleTodos.length === 0 ? (
+          <p className="text-sm text-slate-500">今天暂无待办事项。</p>
         ) : (
           <div className="divide-y divide-line">
-            {unsettledSummary.map((summary) => (
-              <p key={summary.studentId} className="py-3 first:pt-0 last:pb-0 text-sm text-slate-700">
-                {summary.studentName}有 {summary.lessonCount} 节课未结算，共 {formatMoney(summary.amount)}
-              </p>
+            {visibleTodos.map((todo) => (
+              <div key={todo.id} className="py-3 first:pt-0 last:pb-0">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm leading-6 text-slate-700">{todo.message}</p>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${todoBadgeClassName(todo.type)}`}>
+                    {todo.label}
+                  </span>
+                </div>
+                {todo.type === 'ended_unrecorded' ? (
+                  <ActionButton className="mt-3 w-full" onClick={() => handleRecordTodo(todo)}>
+                    记录课时
+                  </ActionButton>
+                ) : null}
+                {todo.type === 'unsettled' ? (
+                  <ActionButton className="mt-3 w-full" onClick={onNavigateToSettlement}>
+                    去结算
+                  </ActionButton>
+                ) : null}
+              </div>
             ))}
+            {hiddenTodoCount > 0 ? (
+              <p className="pt-3 text-xs text-slate-500">还有 {hiddenTodoCount} 条待办未展示。</p>
+            ) : null}
           </div>
         )}
       </Card>

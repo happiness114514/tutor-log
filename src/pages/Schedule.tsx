@@ -75,8 +75,9 @@ const statusLabel: Record<ScheduleStatus, string> = {
 
 const instanceStatusLabel = {
   pending: '待上课',
-  ended_pending_record: '已结束待记录',
-  recorded: '已生成记录',
+  upcoming: '即将上课',
+  ended_pending_record: '待记录',
+  recorded: '已记录',
 };
 
 function fieldClassName(hasError = false) {
@@ -196,6 +197,10 @@ function statusClassName(status: ScheduleInstance['status']) {
 
   if (status === 'ended_pending_record') {
     return 'bg-amber-50 text-amber-800';
+  }
+
+  if (status === 'upcoming') {
+    return 'bg-sky-50 text-sky-700';
   }
 
   return 'bg-neutral-100 text-neutral-600';
@@ -590,7 +595,7 @@ function InstanceCard({
 
       <div className="mt-4 grid gap-2">
         <ActionButton variant="primary" className="w-full" onClick={() => onRecord(instance)}>
-          {instance.status === 'recorded' ? '已生成记录' : '记录课时'}
+          {instance.status === 'recorded' ? '已记录' : '记录课时'}
         </ActionButton>
         <div className="grid grid-cols-2 gap-2">
           <ActionButton className="inline-flex items-center justify-center gap-2" onClick={() => onEdit(schedule)}>

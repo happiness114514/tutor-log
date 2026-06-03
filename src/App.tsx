@@ -33,11 +33,18 @@ export function App() {
     setActivePage('lessons');
   }
 
+  function openSettlement() {
+    setPendingAction(null);
+    setPendingEditLessonId(null);
+    setActivePage('settlement');
+  }
+
   const pages = {
     dashboard: (
       <Dashboard
         onCreateLesson={openNewLesson}
         onCreateStudent={openNewStudent}
+        onNavigateToSettlement={openSettlement}
       />
     ),
     schedule: <Schedule onCreateStudent={openNewStudent} onOpenLessonEditor={openLessonEditor} />,

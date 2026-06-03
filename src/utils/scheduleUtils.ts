@@ -1,7 +1,20 @@
 import type { Lesson, Schedule, Student } from '../types';
 import type { LessonInput } from '../store/useLessons';
+import { formatMoney, isEffectiveLesson } from './dashboardStats';
 
-export type ScheduleInstanceStatus = 'pending' | 'ended_pending_record' | 'recorded';
+export type ScheduleInstanceStatus = 'pending' | 'upcoming' | 'ended_pending_record' | 'recorded';
+
+export type TodayTodoType = 'ended_unrecorded' | 'upcoming' | 'unsettled';
+
+export type TodayTodo = {
+  id: string;
+  type: TodayTodoType;
+  label: string;
+  message: string;
+  priority: number;
+  instance?: ScheduleInstance;
+  studentId?: string;
+};
 
 export type ScheduleInstance = {
   id: string;
@@ -22,6 +35,8 @@ const weekdayLabel: Record<number, string> = {
   6: '周六',
   7: '周日',
 };
+
+const UPCOMING_REMINDER_MINUTES = 120;
 
 function pad(value: number) {
   return String(value).padStart(2, '0');
@@ -107,17 +122,37 @@ function findGeneratedLesson(scheduleId: string, date: string, lessons: Lesson[]
   return lessons.find((lesson) => lesson.scheduleId === scheduleId && lesson.date === date);
 }
 
+function createDateTime(date: string, time: string, fallbackTime: string) {
+  return new Date(`${date}T${time || fallbackTime}:00`);
+}
+
 function getInstanceStatus(schedule: Schedule, date: string, lessons: Lesson[], now = new Date()): ScheduleInstanceStatus {
   const generatedLesson = findGeneratedLesson(schedule.id, date, lessons);
   if (generatedLesson) {
     return 'recorded';
   }
 
-  const endAt = new Date(`${date}T${schedule.endTime || '23:59'}:00`);
-  return now > endAt ? 'ended_pending_record' : 'pending';
+  const startAt = createDateTime(date, schedule.startTime, '00:00');
+  const endAt = createDateTime(date, schedule.endTime, '23:59');
+  if (now > endAt) {
+    return 'ended_pending_record';
+  }
+
+  const minutesUntilStart = (startAt.getTime() - now.getTime()) / 60000;
+  if (minutesUntilStart >= 0 && minutesUntilStart <= UPCOMING_REMINDER_MINUTES) {
+    return 'upcoming';
+  }
+
+  return 'pending';
 }
 
-function createInstance(schedule: Schedule, date: string, lessons: Lesson[], student?: Student): ScheduleInstance {
+function createInstance(
+  schedule: Schedule,
+  date: string,
+  lessons: Lesson[],
+  student?: Student,
+  now = new Date(),
+): ScheduleInstance {
   return {
     id: `${schedule.id}-${date}`,
     schedule,
@@ -125,12 +160,12 @@ function createInstance(schedule: Schedule, date: string, lessons: Lesson[], stu
     student,
     subject: schedule.subject || student?.subject || '未填写科目',
     generatedLesson: findGeneratedLesson(schedule.id, date, lessons),
-    status: getInstanceStatus(schedule, date, lessons),
+    status: getInstanceStatus(schedule, date, lessons, now),
   };
 }
 
-export function getTodayScheduleInstances(schedules: Schedule[], lessons: Lesson[], students: Student[]) {
-  const today = getTodayDate();
+export function getTodayScheduleInstances(schedules: Schedule[], lessons: Lesson[], students: Student[], now = new Date()) {
+  const today = formatDate(now);
   const weekday = getWeekday(today);
   const studentMap = new Map(students.map((student) => [student.id, student]));
 
@@ -142,19 +177,19 @@ export function getTodayScheduleInstances(schedules: Schedule[], lessons: Lesson
 
       return schedule.status === 'active' && Boolean(schedule.repeatRule?.weekdays.includes(weekday));
     })
-    .map((schedule) => createInstance(schedule, today, lessons, studentMap.get(schedule.studentId)))
+    .map((schedule) => createInstance(schedule, today, lessons, studentMap.get(schedule.studentId), now))
     .sort((a, b) => a.schedule.startTime.localeCompare(b.schedule.startTime));
 }
 
-export function getWeekScheduleInstances(schedules: Schedule[], lessons: Lesson[], students: Student[]) {
-  const week = getWeekRange();
+export function getWeekScheduleInstances(schedules: Schedule[], lessons: Lesson[], students: Student[], now = new Date()) {
+  const week = getWeekRange(now);
   const studentMap = new Map(students.map((student) => [student.id, student]));
   const instances: ScheduleInstance[] = [];
 
   schedules.forEach((schedule) => {
     if (schedule.scheduleType === 'one_time') {
       if (schedule.status === 'active' && schedule.date && schedule.date >= week.start && schedule.date <= week.end) {
-        instances.push(createInstance(schedule, schedule.date, lessons, studentMap.get(schedule.studentId)));
+        instances.push(createInstance(schedule, schedule.date, lessons, studentMap.get(schedule.studentId), now));
       }
       return;
     }
@@ -165,7 +200,7 @@ export function getWeekScheduleInstances(schedules: Schedule[], lessons: Lesson[
 
     week.dates.forEach((date) => {
       if (schedule.repeatRule?.weekdays.includes(getWeekday(date))) {
-        instances.push(createInstance(schedule, date, lessons, studentMap.get(schedule.studentId)));
+        instances.push(createInstance(schedule, date, lessons, studentMap.get(schedule.studentId), now));
       }
     });
   });
@@ -206,4 +241,86 @@ export function createLessonFromSchedule(schedule: Schedule, date: string): Less
     status: 'completed',
     isSettled: false,
   };
+}
+
+export function getUpcomingScheduleReminders(
+  schedules: Schedule[],
+  lessons: Lesson[],
+  students: Student[],
+  now = new Date(),
+) {
+  return getTodayScheduleInstances(schedules, lessons, students, now).filter((instance) => instance.status === 'upcoming');
+}
+
+export function getEndedUnrecordedScheduleReminders(
+  schedules: Schedule[],
+  lessons: Lesson[],
+  students: Student[],
+  now = new Date(),
+) {
+  return getTodayScheduleInstances(schedules, lessons, students, now).filter(
+    (instance) => instance.status === 'ended_pending_record',
+  );
+}
+
+export function getUnsettledReminders(students: Student[], lessons: Lesson[]): TodayTodo[] {
+  const studentMap = new Map(students.map((student) => [student.id, student]));
+  const summaryMap = new Map<string, { student?: Student; lessonCount: number; amount: number }>();
+
+  lessons
+    .filter((lesson) => isEffectiveLesson(lesson) && !lesson.isSettled)
+    .forEach((lesson) => {
+      const current = summaryMap.get(lesson.studentId) ?? {
+        student: studentMap.get(lesson.studentId),
+        lessonCount: 0,
+        amount: 0,
+      };
+
+      summaryMap.set(lesson.studentId, {
+        ...current,
+        lessonCount: current.lessonCount + 1,
+        amount: current.amount + lesson.amount,
+      });
+    });
+
+  return [...summaryMap.entries()]
+    .map(([studentId, summary]) => {
+      const studentName = summary.student?.name ?? '未知学生';
+
+      return {
+        id: `unsettled-${studentId}`,
+        type: 'unsettled' as const,
+        label: '未结算',
+        message: `${studentName}有 ${summary.lessonCount} 节课未结算，共 ${formatMoney(summary.amount)}`,
+        priority: 3,
+        studentId,
+      };
+    })
+    .sort((a, b) => a.message.localeCompare(b.message, 'zh-CN'));
+}
+
+export function getTodayTodos(schedules: Schedule[], lessons: Lesson[], students: Student[], now = new Date()) {
+  const endedTodos: TodayTodo[] = getEndedUnrecordedScheduleReminders(schedules, lessons, students, now).map(
+    (instance) => ({
+      id: `ended-${instance.id}`,
+      type: 'ended_unrecorded',
+      label: '待记录',
+      message: `${instance.student?.name ?? '未知学生'} · ${instance.subject}课程已结束，记得记录课时`,
+      priority: 1,
+      instance,
+    }),
+  );
+
+  const upcomingTodos: TodayTodo[] = getUpcomingScheduleReminders(schedules, lessons, students, now).map((instance) => ({
+    id: `upcoming-${instance.id}`,
+    type: 'upcoming',
+    label: '即将上课',
+    message: `${instance.schedule.startTime} ${instance.student?.name ?? '未知学生'} · ${instance.subject}即将上课`,
+    priority: 2,
+    instance,
+  }));
+
+  return [...endedTodos, ...upcomingTodos, ...getUnsettledReminders(students, lessons)].sort(
+    (a, b) => a.priority - b.priority,
+  );
 }
