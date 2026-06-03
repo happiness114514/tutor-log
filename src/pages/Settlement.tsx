@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
+import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
 import { useLessons } from '../store/useLessons';
@@ -84,6 +85,7 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [manualCopyText, setManualCopyText] = useState('');
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const summaries = getUnsettledLessonsByStudent(students, lessons);
   const overview = getSettlementOverview(summaries);
@@ -103,8 +105,12 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
     }
   }
 
-  function handleSettleStudent(summary: SettlementStudentSummary) {
-    const confirmed = window.confirm(`确定将 ${summary.studentName} 的 ${summary.lessonCount} 节课标记为已结算吗？`);
+  async function handleSettleStudent(summary: SettlementStudentSummary) {
+    const confirmed = await confirm({
+      title: '标记已收款',
+      description: `确定将 ${summary.studentName} 的 ${summary.lessonCount} 节课标记为已结算吗？`,
+      confirmText: '标记已收款',
+    });
     if (!confirmed) {
       return;
     }
@@ -116,8 +122,12 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
     showToast('已标记为已收款');
   }
 
-  function handleSettleLesson(summary: SettlementStudentSummary, lesson: Lesson) {
-    const confirmed = window.confirm(`确定将 ${summary.studentName} ${lesson.date} 的课时标记为已结算吗？`);
+  async function handleSettleLesson(summary: SettlementStudentSummary, lesson: Lesson) {
+    const confirmed = await confirm({
+      title: '标记本节已收款',
+      description: `确定将 ${summary.studentName} ${lesson.date} 的课时标记为已结算吗？`,
+      confirmText: '标记已收款',
+    });
     if (!confirmed) {
       return;
     }
@@ -137,6 +147,7 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
   return (
     <div>
       <PageHeader title="结算" />
+      {confirmDialog}
 
       <Card>
         <div className="mb-3 flex items-center justify-between">

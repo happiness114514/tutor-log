@@ -2,7 +2,9 @@ import { ChevronDown, ChevronUp, Edit2, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
+import { AppSelect } from '../components/AppSelect';
 import { Card } from '../components/Card';
+import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
 import { useLessons, type LessonInput } from '../store/useLessons';
 import { useStudents } from '../store/useStudents';
@@ -56,6 +58,19 @@ const trialFeeModeLabel: Record<TrialFeeMode, string> = {
   normal: '正常',
   custom: '自定义',
 };
+
+const lessonStatusOptions = [
+  { value: 'completed', label: '已上课' },
+  { value: 'leave', label: '请假' },
+  { value: 'cancelled', label: '取消' },
+  { value: 'makeup', label: '补课' },
+  { value: 'trial', label: '试课' },
+];
+
+const billingTypeOptions = [
+  { value: 'hourly', label: '按小时' },
+  { value: 'per_session', label: '按次' },
+];
 
 interface LessonsProps {
   onNavigateToStudents: () => void;
@@ -424,14 +439,14 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
   const [errors, setErrors] = useState<LessonFormErrors>({});
   const [isMoreOpen, setIsMoreOpen] = useState(defaultMoreOpen);
   const fieldRefs = useRef<
-    Partial<Record<keyof LessonFormErrors, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>>
+    Partial<Record<keyof LessonFormErrors, HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>>
   >({});
   const durationHoursRef = useRef<HTMLInputElement>(null);
   const selectedStudent = students.find((student) => student.id === form.studentId);
   const isCustomDuration = form.durationMode === 'custom';
 
   function setFieldRef(key: keyof LessonFormErrors) {
-    return (element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => {
+    return (element: HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => {
       fieldRefs.current[key] = element;
     };
   }
@@ -617,20 +632,20 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
 
         <div>
           <FieldLabel required>学生</FieldLabel>
-          <select
+          <AppSelect
             ref={setFieldRef('studentId')}
             data-form-autofocus="true"
-            className={fieldClassName(Boolean(errors.studentId))}
+            title="选择学生"
+            hasError={Boolean(errors.studentId)}
             value={form.studentId}
-            onChange={(event) => handleStudentChange(event.target.value)}
-          >
-            <option value="">请选择学生</option>
-            {students.map((student) => (
-              <option key={student.id} value={student.id}>
-                {student.name}
-              </option>
-            ))}
-          </select>
+            placeholder="请选择学生"
+            options={students.map((student) => ({
+              value: student.id,
+              label: student.name,
+              description: [student.grade, student.subject].filter(Boolean).join(' · ') || '未填写年级/科目',
+            }))}
+            onChange={handleStudentChange}
+          />
           <FieldError message={errors.studentId} />
           <p className="mt-2 text-xs text-slate-500">科目：{selectedStudent?.subject ?? '选择学生后显示'}</p>
         </div>
@@ -814,31 +829,26 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <FieldLabel required>课程状态</FieldLabel>
-                <select
+                <AppSelect
                   ref={setFieldRef('status')}
-                  className={fieldClassName(Boolean(errors.status))}
+                  title="选择课程状态"
+                  hasError={Boolean(errors.status)}
                   value={form.status}
-                  onChange={(event) => handleStatusChange(event.target.value as LessonStatus)}
-                >
-                  <option value="completed">已上课</option>
-                  <option value="leave">请假</option>
-                  <option value="cancelled">取消</option>
-                  <option value="makeup">补课</option>
-                  <option value="trial">试课</option>
-                </select>
+                  options={lessonStatusOptions}
+                  onChange={(value) => handleStatusChange(value as LessonStatus)}
+                />
                 <FieldError message={errors.status} />
               </div>
               <div>
                 <FieldLabel required>计费方式</FieldLabel>
-                <select
+                <AppSelect
                   ref={setFieldRef('billingType')}
-                  className={fieldClassName(Boolean(errors.billingType))}
+                  title="选择计费方式"
+                  hasError={Boolean(errors.billingType)}
                   value={form.billingType}
-                  onChange={(event) => updateQuickFields({ billingType: event.target.value as BillingType })}
-                >
-                  <option value="hourly">按小时</option>
-                  <option value="per_session">按次</option>
-                </select>
+                  options={billingTypeOptions}
+                  onChange={(value) => updateQuickFields({ billingType: value as BillingType })}
+                />
                 <FieldError message={errors.billingType} />
               </div>
             </div>
@@ -1007,6 +1017,7 @@ export function Lessons({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const formContainerRef = useRef<HTMLDivElement>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const studentMap = useMemo(() => new Map(students.map((student) => [student.id, student])), [students]);
 
@@ -1074,10 +1085,15 @@ export function Lessons({
     closeForm();
   }
 
-  function handleDelete(lesson: Lesson) {
+  async function handleDelete(lesson: Lesson) {
     const student = studentMap.get(lesson.studentId);
     const studentDisplay = getStudentDisplay(student, lesson);
-    const confirmed = window.confirm(`确定删除 ${studentDisplay.name} 在 ${lesson.date} 的课时记录吗？`);
+    const confirmed = await confirm({
+      title: '删除课时',
+      description: `确定删除 ${studentDisplay.name} 在 ${lesson.date} 的课时记录吗？`,
+      confirmText: '删除',
+      tone: 'danger',
+    });
     if (confirmed) {
       deleteLesson(lesson.id);
       showToast('课时已删除');
@@ -1089,6 +1105,7 @@ export function Lessons({
   return (
     <div>
       <PageHeader title="课时记录" />
+      {confirmDialog}
 
       {canCreateLesson && !isFormOpen ? (
         <ActionButton variant="primary" className="mb-4 inline-flex w-full items-center justify-center gap-2" onClick={openCreateForm}>

@@ -2,7 +2,9 @@ import { Edit2, Pause, Play, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
+import { AppSelect } from '../components/AppSelect';
 import { Card } from '../components/Card';
+import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
 import { useLessons } from '../store/useLessons';
@@ -73,6 +75,19 @@ const statusLabel: Record<ScheduleStatus, string> = {
   paused: '暂停',
   ended: '已结束',
 };
+
+const billingTypeOptions = [
+  { value: 'hourly', label: '按小时' },
+  { value: 'per_session', label: '按次' },
+];
+
+const reminderOptions = [
+  { value: '', label: '不提醒' },
+  { value: '0', label: '准时' },
+  { value: '10', label: '提前10分钟' },
+  { value: '30', label: '提前30分钟' },
+  { value: '60', label: '提前60分钟' },
+];
 
 const instanceStatusLabel = {
   pending: '待上课',
@@ -373,20 +388,20 @@ function ScheduleForm({
 
         <div>
           <FieldLabel required>学生</FieldLabel>
-          <select
+          <AppSelect
             ref={setFieldRef('studentId')}
             data-form-autofocus="true"
-            className={fieldClassName(Boolean(errors.studentId))}
+            title="选择学生"
+            hasError={Boolean(errors.studentId)}
             value={form.studentId}
-            onChange={(event) => handleStudentChange(event.target.value)}
-          >
-            <option value="">请选择学生</option>
-            {students.map((student) => (
-              <option key={student.id} value={student.id}>
-                {student.name}
-              </option>
-            ))}
-          </select>
+            placeholder="请选择学生"
+            options={students.map((student) => ({
+              value: student.id,
+              label: student.name,
+              description: [student.grade, student.subject].filter(Boolean).join(' · ') || '未填写年级/科目',
+            }))}
+            onChange={handleStudentChange}
+          />
           <FieldError message={errors.studentId} />
         </div>
 
@@ -493,28 +508,21 @@ function ScheduleForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel required>计费方式</FieldLabel>
-            <select
-              className={fieldClassName()}
+            <AppSelect
+              title="选择计费方式"
               value={form.billingType}
-              onChange={(event) => updateForm({ billingType: event.target.value as BillingType })}
-            >
-              <option value="hourly">按小时</option>
-              <option value="per_session">按次</option>
-            </select>
+              options={billingTypeOptions}
+              onChange={(value) => updateForm({ billingType: value as BillingType })}
+            />
           </div>
           <div>
             <FieldLabel>提前提醒</FieldLabel>
-            <select
-              className={fieldClassName()}
+            <AppSelect
+              title="选择提醒时间"
               value={form.reminderMinutesBefore}
-              onChange={(event) => updateForm({ reminderMinutesBefore: event.target.value })}
-            >
-              <option value="">不提醒</option>
-              <option value="0">准时</option>
-              <option value="10">提前10分钟</option>
-              <option value="30">提前30分钟</option>
-              <option value="60">提前60分钟</option>
-            </select>
+              options={reminderOptions}
+              onChange={(value) => updateForm({ reminderMinutesBefore: value })}
+            />
           </div>
         </div>
 
@@ -701,6 +709,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
   const [notice, setNotice] = useState('');
   const [createdLessonId, setCreatedLessonId] = useState<string | null>(null);
   const formContainerRef = useRef<HTMLDivElement>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
 
   const studentMap = useMemo(() => new Map(students.map((student) => [student.id, student])), [students]);
   const todayInstances = useMemo(
@@ -766,8 +775,13 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
     closeForm();
   }
 
-  function handleDelete(schedule: ScheduleModel) {
-    const confirmed = window.confirm('确定删除这节课程安排吗？已经生成的课时记录不会被删除。');
+  async function handleDelete(schedule: ScheduleModel) {
+    const confirmed = await confirm({
+      title: '删除课程安排',
+      description: '确定删除这节课程安排吗？已经生成的课时记录不会被删除。',
+      confirmText: '删除',
+      tone: 'danger',
+    });
     if (!confirmed) {
       return;
     }
@@ -785,7 +799,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
 
   function handleRecordLesson(instance: ScheduleInstance) {
     if (hasGeneratedLesson(instance.schedule.id, instance.date, lessons)) {
-      window.alert('这节课已经记录过了。');
+      showToast('这节课已经记录过了', 'info');
       return;
     }
 
@@ -837,6 +851,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
   return (
     <div>
       <PageHeader title="课程表" />
+      {confirmDialog}
 
       <div className="mb-4 grid grid-cols-3 rounded-lg border border-line bg-white p-1">
         {viewTabs.map((tab) => (

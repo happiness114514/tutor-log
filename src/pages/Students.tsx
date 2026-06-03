@@ -2,7 +2,9 @@ import { ArrowLeft, BookOpen, ChevronRight, Copy, Edit2, Plus, ReceiptText, Tras
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
+import { AppSelect } from '../components/AppSelect';
 import { Card } from '../components/Card';
+import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
 import { useLessons } from '../store/useLessons';
@@ -67,6 +69,18 @@ const settlementCycleLabel: Record<SettlementCycle, string> = {
   monthly: '每月',
   custom: '自定义',
 };
+
+const billingTypeOptions = [
+  { value: 'hourly', label: '按小时' },
+  { value: 'per_session', label: '按次' },
+];
+
+const settlementCycleOptions = [
+  { value: 'per_session', label: '按次' },
+  { value: 'weekly', label: '每周' },
+  { value: 'monthly', label: '每月' },
+  { value: 'custom', label: '自定义' },
+];
 
 const scheduleTypeLabel: Record<ScheduleType, string> = {
   recurring: '固定',
@@ -190,11 +204,11 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
   const [form, setForm] = useState<StudentFormState>(initialValue);
   const [errors, setErrors] = useState<StudentFormErrors>({});
   const fieldRefs = useRef<
-    Partial<Record<keyof StudentFormState, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>>
+    Partial<Record<keyof StudentFormState, HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>>
   >({});
 
   function setFieldRef(key: keyof StudentFormState) {
-    return (element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => {
+    return (element: HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => {
       fieldRefs.current[key] = element;
     };
   }
@@ -344,30 +358,26 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel required>计费方式</FieldLabel>
-            <select
+            <AppSelect
               ref={setFieldRef('billingType')}
-              className={inputClassName(Boolean(errors.billingType))}
+              title="选择计费方式"
+              hasError={Boolean(errors.billingType)}
               value={form.billingType}
-              onChange={(event) => updateField('billingType', event.target.value as BillingType)}
-            >
-              <option value="hourly">按小时</option>
-              <option value="per_session">按次</option>
-            </select>
+              options={billingTypeOptions}
+              onChange={(value) => updateField('billingType', value as BillingType)}
+            />
             <FieldError message={errors.billingType} />
           </div>
           <div>
             <FieldLabel required>结算周期</FieldLabel>
-            <select
+            <AppSelect
               ref={setFieldRef('settlementCycle')}
-              className={inputClassName(Boolean(errors.settlementCycle))}
+              title="选择结算周期"
+              hasError={Boolean(errors.settlementCycle)}
               value={form.settlementCycle}
-              onChange={(event) => updateField('settlementCycle', event.target.value as SettlementCycle)}
-            >
-              <option value="per_session">按次</option>
-              <option value="weekly">每周</option>
-              <option value="monthly">每月</option>
-              <option value="custom">自定义</option>
-            </select>
+              options={settlementCycleOptions}
+              onChange={(value) => updateField('settlementCycle', value as SettlementCycle)}
+            />
             <FieldError message={errors.settlementCycle} />
           </div>
         </div>
@@ -771,6 +781,7 @@ function StudentDetail({
   onSettleLessons: (ids: string[]) => void;
 }) {
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const { confirm, confirmDialog } = useConfirmDialog();
   const studentLessons = getStudentLessons(student.id, lessons);
   const studentSchedules = getStudentSchedules(student.id, schedules);
   const stats = getStudentStats(student, studentLessons);
@@ -792,8 +803,12 @@ function StudentDetail({
     }
   }
 
-  function handleSettleLesson(lesson: Lesson) {
-    const confirmed = window.confirm(`确定将 ${student.name} ${lesson.date} 的课时标记为已结算吗？`);
+  async function handleSettleLesson(lesson: Lesson) {
+    const confirmed = await confirm({
+      title: '标记已收款',
+      description: `确定将 ${student.name} ${lesson.date} 的课时标记为已结算吗？`,
+      confirmText: '标记已收款',
+    });
     if (!confirmed) {
       return;
     }
@@ -802,13 +817,17 @@ function StudentDetail({
     showToast('已标记本节已收款');
   }
 
-  function handleSettleAll() {
+  async function handleSettleAll() {
     if (settlementSummary.lessons.length === 0) {
       showToast('该学生暂无未结算课时', 'info');
       return;
     }
 
-    const confirmed = window.confirm(`确定将 ${student.name} 的 ${settlementSummary.lessonCount} 节课标记为已结算吗？`);
+    const confirmed = await confirm({
+      title: '标记全部已收款',
+      description: `确定将 ${student.name} 的 ${settlementSummary.lessonCount} 节课标记为已结算吗？`,
+      confirmText: '标记已收款',
+    });
     if (!confirmed) {
       return;
     }
@@ -819,6 +838,7 @@ function StudentDetail({
 
   return (
     <div>
+      {confirmDialog}
       <div className="mb-4 flex items-center justify-between gap-3">
         <button
           type="button"
@@ -920,6 +940,7 @@ export function Students({
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const formContainerRef = useRef<HTMLDivElement>(null);
+  const { confirm, confirmDialog } = useConfirmDialog();
   const selectedStudent = selectedStudentId ? students.find((student) => student.id === selectedStudentId) : undefined;
 
   function openCreateForm() {
@@ -973,14 +994,19 @@ export function Students({
     closeForm();
   }
 
-  function handleDelete(student: Student) {
+  async function handleDelete(student: Student) {
     const lessonCount = lessons.filter((lesson) => lesson.studentId === student.id).length;
     const scheduleCount = schedules.filter((schedule) => schedule.studentId === student.id).length;
     const message =
       lessonCount > 0 || scheduleCount > 0
         ? `该学生有关联的 ${lessonCount} 条课时记录和 ${scheduleCount} 条课程安排。删除学生档案后，这些历史数据仍会保留。是否确认删除？`
         : '删除该学生后，学生档案将从学生列表中移除，但该学生的历史课时和课程记录会继续保留。是否确认删除？';
-    const confirmed = window.confirm(message);
+    const confirmed = await confirm({
+      title: '删除学生档案',
+      description: message,
+      confirmText: '删除档案',
+      tone: 'danger',
+    });
     if (confirmed) {
       preserveLessonStudentSnapshot(student);
       preserveScheduleStudentSnapshot(student);
@@ -1013,6 +1039,7 @@ export function Students({
   return (
     <div>
       <PageHeader title="学生" subtitle="管理学生资料、默认收费和结算偏好" />
+      {confirmDialog}
 
       {isFormOpen ? (
         <div ref={formContainerRef} className="scroll-mt-4 scroll-mb-28">

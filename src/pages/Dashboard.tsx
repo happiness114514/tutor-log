@@ -2,6 +2,7 @@ import { ChevronRight, PlusCircle, UserPlus } from 'lucide-react';
 import { useRef } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
+import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
 import { useLessons } from '../store/useLessons';
@@ -62,6 +63,7 @@ export function Dashboard({ onCreateLesson, onCreateStudent, onNavigateToSettlem
   const { students } = useStudents();
   const { lessons, addLesson } = useLessons();
   const { schedules } = useSchedules();
+  const { confirm, confirmDialog } = useConfirmDialog();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stats = getDashboardStats(students, lessons);
   const recentLessons = getRecentLessons(lessons);
@@ -88,7 +90,12 @@ export function Dashboard({ onCreateLesson, onCreateStudent, onNavigateToSettlem
 
     try {
       const backup = await parseBackupFile(file);
-      const confirmed = window.confirm('导入数据会覆盖当前本地数据，确定继续吗？');
+      const confirmed = await confirm({
+        title: '导入数据',
+        description: '导入数据会覆盖当前本地数据，确定继续吗？',
+        confirmText: '继续导入',
+        tone: 'danger',
+      });
       if (!confirmed) {
         return;
       }
@@ -122,6 +129,7 @@ export function Dashboard({ onCreateLesson, onCreateStudent, onNavigateToSettlem
   return (
     <div>
       <PageHeader title="家教课时本" subtitle={`专注记录，清晰管理 · ${todayLabel()}`} />
+      {confirmDialog}
 
       {students.length === 0 ? (
         <Card className="mb-4">
