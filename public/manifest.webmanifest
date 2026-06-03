@@ -1,0 +1,25 @@
+{
+  "name": "家教课时本",
+  "short_name": "课时本",
+  "description": "面向个人家教老师的课时记录、课程提醒和结算管理工具",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#f7f7f6",
+  "background_color": "#f7f7f6",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
