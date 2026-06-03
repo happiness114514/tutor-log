@@ -13,15 +13,23 @@ type PendingAction = 'openNewLesson' | 'openNewStudent' | null;
 export function App() {
   const [activePage, setActivePage] = useActivePage();
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+  const [pendingEditLessonId, setPendingEditLessonId] = useState<string | null>(null);
 
   function openNewLesson() {
     setPendingAction('openNewLesson');
+    setPendingEditLessonId(null);
     setActivePage('lessons');
   }
 
   function openNewStudent() {
     setPendingAction('openNewStudent');
     setActivePage('students');
+  }
+
+  function openLessonEditor(lessonId: string) {
+    setPendingAction(null);
+    setPendingEditLessonId(lessonId);
+    setActivePage('lessons');
   }
 
   const pages = {
@@ -31,12 +39,14 @@ export function App() {
         onCreateStudent={openNewStudent}
       />
     ),
-    schedule: <Schedule />,
+    schedule: <Schedule onCreateStudent={openNewStudent} onOpenLessonEditor={openLessonEditor} />,
     lessons: (
       <Lessons
         onNavigateToStudents={() => setActivePage('students')}
         openCreateRequest={pendingAction === 'openNewLesson'}
         onCreateRequestConsumed={() => setPendingAction(null)}
+        openEditLessonId={pendingEditLessonId}
+        onEditRequestConsumed={() => setPendingEditLessonId(null)}
       />
     ),
     students: (

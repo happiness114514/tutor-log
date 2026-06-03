@@ -18,6 +18,35 @@ export type BillingType = 'hourly' | 'per_session';
 
 export type SettlementCycle = 'per_session' | 'weekly' | 'monthly' | 'custom';
 
+export type ScheduleType = 'recurring' | 'one_time';
+
+export type ScheduleStatus = 'active' | 'paused' | 'ended';
+
+export type Schedule = {
+  id: string;
+  studentId: string;
+  title?: string;
+  subject?: string;
+  scheduleType: ScheduleType;
+  repeatRule?: {
+    frequency: 'weekly';
+    weekdays: number[];
+  };
+  date?: string;
+  startTime: string;
+  endTime: string;
+  location?: string;
+  reminderMinutesBefore?: number;
+  postClassReminderEnabled: boolean;
+  defaultDuration: number;
+  defaultRate: number;
+  billingType: BillingType;
+  status: ScheduleStatus;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Student = {
   id: string;
   name: string;

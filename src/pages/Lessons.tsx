@@ -58,6 +58,8 @@ interface LessonsProps {
   onNavigateToStudents: () => void;
   openCreateRequest?: boolean;
   onCreateRequestConsumed?: () => void;
+  openEditLessonId?: string | null;
+  onEditRequestConsumed?: () => void;
 }
 
 function todayString() {
@@ -986,7 +988,13 @@ function LessonCard({
   );
 }
 
-export function Lessons({ onNavigateToStudents, openCreateRequest = false, onCreateRequestConsumed }: LessonsProps) {
+export function Lessons({
+  onNavigateToStudents,
+  openCreateRequest = false,
+  onCreateRequestConsumed,
+  openEditLessonId = null,
+  onEditRequestConsumed,
+}: LessonsProps) {
   const { students } = useStudents();
   const { lessons, addLesson, updateLesson, deleteLesson } = useLessons();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -1006,6 +1014,18 @@ export function Lessons({ onNavigateToStudents, openCreateRequest = false, onCre
       onCreateRequestConsumed?.();
     }
   }, [openCreateRequest, onCreateRequestConsumed]);
+
+  useEffect(() => {
+    if (!openEditLessonId) {
+      return;
+    }
+
+    const lesson = lessons.find((item) => item.id === openEditLessonId);
+    if (lesson) {
+      openEditForm(lesson);
+      onEditRequestConsumed?.();
+    }
+  }, [openEditLessonId, lessons, onEditRequestConsumed]);
 
   useEffect(() => {
     if (!isFormOpen) {

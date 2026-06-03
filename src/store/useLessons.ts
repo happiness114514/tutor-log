@@ -6,6 +6,7 @@ const STORAGE_KEY = 'tutor-log.lessons';
 
 export type LessonInput = {
   studentId: string;
+  scheduleId?: string;
   date: string;
   startTime?: string;
   endTime?: string;
@@ -111,6 +112,7 @@ export function useLessons() {
     };
 
     setLessons((current) => [lesson, ...current]);
+    return lesson;
   }
 
   function updateLesson(id: string, input: LessonInput) {
