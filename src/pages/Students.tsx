@@ -1,12 +1,31 @@
-import { Edit2, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, ChevronRight, Copy, Edit2, Plus, ReceiptText, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
+import { SectionTitle } from '../components/SectionTitle';
+import { useLessons } from '../store/useLessons';
+import { useSchedules } from '../store/useSchedules';
 import { useStudents, type StudentInput } from '../store/useStudents';
-import type { BillingType, SettlementCycle, Student } from '../types';
-import { formatMoney } from '../utils/dashboardStats';
+import type { BillingType, Lesson, LessonStatus, Schedule, ScheduleStatus, ScheduleType, SettlementCycle, Student } from '../types';
+import { copyTextToClipboard } from '../utils/clipboard';
+import { formatDuration, formatMoney } from '../utils/dashboardStats';
+import {
+  formatLessonDateTime,
+  generateSettlementText,
+  getLessonStatusLabel,
+  type SettlementStudentSummary,
+} from '../utils/settlementStats';
+import {
+  getRecentTeachingNotes,
+  getStudentLessons,
+  getStudentSchedules,
+  getStudentStats,
+  getStudentUnsettledLessons,
+  type StudentStats,
+} from '../utils/studentStats';
+import { formatMonthDay, formatWeekday } from '../utils/scheduleUtils';
 import { showToast } from '../utils/toast';
 
 type StudentFormState = {
@@ -47,6 +66,25 @@ const settlementCycleLabel: Record<SettlementCycle, string> = {
   weekly: '每周',
   monthly: '每月',
   custom: '自定义',
+};
+
+const scheduleTypeLabel: Record<ScheduleType, string> = {
+  recurring: '固定',
+  one_time: '临时',
+};
+
+const scheduleStatusLabel: Record<ScheduleStatus, string> = {
+  active: '启用',
+  paused: '暂停',
+  ended: '已结束',
+};
+
+const lessonStatusClassName: Record<LessonStatus, string> = {
+  completed: 'bg-neutral-100 text-neutral-700',
+  makeup: 'bg-sky-50 text-sky-700',
+  trial: 'bg-violet-50 text-violet-700',
+  leave: 'bg-amber-50 text-amber-800',
+  cancelled: 'bg-rose-50 text-rose-700',
 };
 
 function studentToForm(student: Student): StudentFormState {
@@ -106,6 +144,39 @@ function textareaClassName(hasError = false) {
 
 function FieldError({ message }: { message?: string }) {
   return message ? <p className="mt-1 text-xs text-coral">{message}</p> : null;
+}
+
+function emptyText(value?: string) {
+  return value || '未填写';
+}
+
+function truncateText(value?: string, length = 34) {
+  if (!value) {
+    return undefined;
+  }
+
+  return value.length > length ? `${value.slice(0, length)}...` : value;
+}
+
+function lessonTimeText(lesson: Lesson) {
+  if (lesson.startTime && lesson.endTime) {
+    return `${lesson.startTime}-${lesson.endTime}`;
+  }
+
+  return '未填写时间';
+}
+
+function scheduleTimeText(schedule: Schedule) {
+  return `${schedule.startTime}-${schedule.endTime}`;
+}
+
+function scheduleDateText(schedule: Schedule) {
+  if (schedule.scheduleType === 'recurring') {
+    const weekdays = schedule.repeatRule?.weekdays ?? [];
+    return weekdays.length ? weekdays.map(formatWeekday).join('、') : '未设置重复日期';
+  }
+
+  return schedule.date ? formatMonthDay(schedule.date) : '未填写日期';
 }
 
 interface StudentFormProps {
@@ -346,10 +417,14 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
 
 function StudentCard({
   student,
+  stats,
+  onOpen,
   onEdit,
   onDelete,
 }: {
   student: Student;
+  stats: StudentStats;
+  onOpen: (student: Student) => void;
   onEdit: (student: Student) => void;
   onDelete: (student: Student) => void;
 }) {
@@ -357,47 +432,50 @@ function StudentCard({
 
   return (
     <Card>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-lg font-semibold text-ink">{student.name}</p>
-          <p className="mt-1 text-sm text-slate-500">
-            {student.grade || '未填写年级'} · {student.subject || '未填写科目'}
-          </p>
+      <button type="button" onClick={() => onOpen(student)} className="block w-full text-left">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-lg font-semibold text-ink">{student.name}</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {student.grade || '未填写年级'} · {student.subject || '未填写科目'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                student.isActive ? 'bg-neutral-100 text-neutral-700' : 'bg-neutral-100 text-neutral-500'
+              }`}
+            >
+              {student.isActive ? '活跃' : '停用'}
+            </span>
+            <ChevronRight className="h-4 w-4 text-slate-400" />
+          </div>
         </div>
-        <span
-          className={`rounded-md px-2 py-1 text-xs font-semibold ${
-            student.isActive ? 'bg-neutral-100 text-neutral-700' : 'bg-neutral-100 text-neutral-500'
-          }`}
-        >
-          {student.isActive ? '活跃' : '停用'}
-        </span>
-      </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <dt className="text-slate-500">默认单价</dt>
-          <dd className="mt-1 font-semibold">{formatMoney(student.defaultRate)}</dd>
-        </div>
-        <div>
-          <dt className="text-slate-500">默认时长</dt>
-          <dd className="mt-1 font-semibold">{student.defaultDuration}小时</dd>
-        </div>
-        <div>
-          <dt className="text-slate-500">计费方式</dt>
-          <dd className="mt-1 font-semibold">{billingTypeLabel[student.billingType]}</dd>
-        </div>
-        <div>
-          <dt className="text-slate-500">结算周期</dt>
-          <dd className="mt-1 font-semibold">{settlementCycleLabel[student.settlementCycle]}</dd>
-        </div>
-      </dl>
+        <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <div>
+            <dt className="text-slate-500">默认单价</dt>
+            <dd className="mt-1 font-semibold">{formatMoney(student.defaultRate)}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">默认时长</dt>
+            <dd className="mt-1 font-semibold">{formatDuration(student.defaultDuration)}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">本月课时</dt>
+            <dd className="mt-1 font-semibold">{formatDuration(stats.monthlyDuration)}</dd>
+          </div>
+          <div>
+            <dt className="text-slate-500">未结算</dt>
+            <dd className="mt-1 font-semibold text-neutral-950">{formatMoney(stats.unsettledAmount)}</dd>
+          </div>
+        </dl>
 
-      {student.parentContact ? (
-        <p className="mt-3 text-sm text-slate-500">家长联系方式：{student.parentContact}</p>
-      ) : null}
-      <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
-        {noteSummary || '暂无备注'}
-      </p>
+        <p className="mt-3 text-xs text-slate-500">最近上课：{stats.recentLessonDate ?? '暂无记录'}</p>
+        <p className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          {noteSummary || '暂无备注'}
+        </p>
+      </button>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         <ActionButton className="inline-flex items-center justify-center gap-2" onClick={() => onEdit(student)}>
@@ -417,18 +495,435 @@ function StudentCard({
   );
 }
 
+function createStudentSettlementSummary(student: Student, unsettledLessons: Lesson[]): SettlementStudentSummary {
+  return {
+    studentId: student.id,
+    student,
+    studentName: student.name,
+    subject: student.subject ?? '未填写科目',
+    lessons: unsettledLessons,
+    lessonCount: unsettledLessons.length,
+    duration: unsettledLessons.reduce((sum, lesson) => sum + lesson.duration, 0),
+    amount: unsettledLessons.reduce((sum, lesson) => sum + lesson.amount, 0),
+    latestLessonDate: unsettledLessons[0]?.date,
+  };
+}
+
+function StatGrid({ stats }: { stats: StudentStats }) {
+  const items = [
+    { label: '累计课时', value: formatDuration(stats.totalDuration) },
+    { label: '累计收入', value: formatMoney(stats.totalIncome) },
+    { label: '本月课时', value: formatDuration(stats.monthlyDuration) },
+    { label: '本月应收', value: formatMoney(stats.monthlyReceivable) },
+    { label: '已结算', value: formatMoney(stats.settledAmount) },
+    { label: '未结算', value: formatMoney(stats.unsettledAmount), highlight: true },
+    { label: '累计上课', value: `${stats.lessonCount}次` },
+  ];
+
+  return (
+    <Card className="p-0">
+      <div className="grid grid-cols-2 divide-x divide-y divide-neutral-100 overflow-hidden rounded-2xl">
+        {items.map((item) => (
+          <div key={item.label} className="p-4">
+            <p className="text-xs text-slate-500">{item.label}</p>
+            <p className={`mt-2 text-lg font-semibold ${item.highlight ? 'text-neutral-950' : 'text-ink'}`}>
+              {item.value}
+            </p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function StudentSettingsSummary({ student }: { student: Student }) {
+  const rows = [
+    ['默认单价', formatMoney(student.defaultRate)],
+    ['默认时长', formatDuration(student.defaultDuration)],
+    ['计费方式', billingTypeLabel[student.billingType]],
+    ['结算周期', settlementCycleLabel[student.settlementCycle]],
+    ['家长联系方式', emptyText(student.parentContact)],
+    ['备注', emptyText(student.note)],
+  ];
+
+  return (
+    <Card>
+      <div className="space-y-3">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-start justify-between gap-4 border-b border-neutral-100 pb-3 last:border-0 last:pb-0">
+            <p className="text-sm text-slate-500">{label}</p>
+            <p className="max-w-[60%] text-right text-sm font-medium text-ink">{value}</p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function StudentSchedulesSection({ schedules }: { schedules: Schedule[] }) {
+  const visibleSchedules = schedules.slice(0, 6);
+
+  if (visibleSchedules.length === 0) {
+    return (
+      <Card className="py-8 text-center">
+        <p className="text-sm text-slate-500">该学生还没有课程安排。</p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {visibleSchedules.map((schedule) => (
+        <Card key={schedule.id}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold text-ink">
+                {scheduleTypeLabel[schedule.scheduleType]} · {scheduleDateText(schedule)}
+              </p>
+              <p className="mt-1 text-sm text-slate-500">
+                {scheduleTimeText(schedule)} · {emptyText(schedule.subject)}
+              </p>
+              <p className="mt-2 text-xs text-slate-500">地点：{emptyText(schedule.location)}</p>
+            </div>
+            <span className="rounded-full bg-neutral-100 px-2 py-1 text-xs font-semibold text-neutral-600">
+              {scheduleStatusLabel[schedule.status]}
+            </span>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function LessonBadge({ lesson }: { lesson: Lesson }) {
+  return (
+    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${lessonStatusClassName[lesson.status]}`}>
+      {getLessonStatusLabel(lesson.status)}
+    </span>
+  );
+}
+
+function SettlementBadge({ isSettled }: { isSettled: boolean }) {
+  return (
+    <span
+      className={`rounded-full px-2 py-1 text-xs font-semibold ${
+        isSettled ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'
+      }`}
+    >
+      {isSettled ? '已结算' : '未结算'}
+    </span>
+  );
+}
+
+function StudentUnsettledSection({
+  summary,
+  onCopy,
+  onSettleLesson,
+  onSettleAll,
+}: {
+  summary: SettlementStudentSummary;
+  onCopy: () => void;
+  onSettleLesson: (lesson: Lesson) => void;
+  onSettleAll: () => void;
+}) {
+  if (summary.lessons.length === 0) {
+    return (
+      <Card className="py-8 text-center">
+        <p className="text-sm text-slate-500">该学生暂无未结算课时。</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <div className="space-y-3">
+        {summary.lessons.map((lesson) => (
+          <div key={lesson.id} className="rounded-xl border border-neutral-100 bg-neutral-50 p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-ink">{formatLessonDateTime(lesson)}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {formatDuration(lesson.duration)} · {lessonTimeText(lesson)}
+                </p>
+              </div>
+              <p className="text-lg font-semibold text-neutral-950">{formatMoney(lesson.amount)}</p>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <LessonBadge lesson={lesson} />
+              <ActionButton className="h-9" onClick={() => onSettleLesson(lesson)}>
+                标记本节已收款
+              </ActionButton>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 rounded-xl bg-white p-3 text-sm ring-1 ring-neutral-100">
+        <p className="font-semibold text-ink">未结算合计</p>
+        <p className="mt-2 text-slate-600">
+          {summary.lessonCount} 次课 · {formatDuration(summary.duration)} · {formatMoney(summary.amount)}
+        </p>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <ActionButton className="inline-flex items-center justify-center gap-2" onClick={onCopy}>
+          <Copy className="h-4 w-4" />
+          复制账单
+        </ActionButton>
+        <ActionButton variant="primary" onClick={onSettleAll}>
+          标记全部已收款
+        </ActionButton>
+      </div>
+    </Card>
+  );
+}
+
+function StudentHistorySection({
+  lessons,
+  showAll,
+  onToggleShowAll,
+}: {
+  lessons: Lesson[];
+  showAll: boolean;
+  onToggleShowAll: () => void;
+}) {
+  const visibleLessons = showAll ? lessons : lessons.slice(0, 5);
+
+  if (lessons.length === 0) {
+    return (
+      <Card className="py-8 text-center">
+        <p className="text-sm text-slate-500">还没有课时记录。</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <div className="space-y-4">
+        {visibleLessons.map((lesson) => (
+          <div key={lesson.id} className="border-b border-neutral-100 pb-4 last:border-0 last:pb-0">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold text-ink">{formatLessonDateTime(lesson)}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {formatDuration(lesson.duration)} · {formatMoney(lesson.amount)}
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <LessonBadge lesson={lesson} />
+                <SettlementBadge isSettled={lesson.isSettled} />
+              </div>
+            </div>
+            {lesson.content ? <p className="mt-3 text-sm text-slate-600">课堂内容：{truncateText(lesson.content)}</p> : null}
+            {lesson.homework ? <p className="mt-1 text-sm text-slate-500">作业：{truncateText(lesson.homework)}</p> : null}
+          </div>
+        ))}
+      </div>
+      {lessons.length > 5 ? (
+        <ActionButton className="mt-4 w-full" onClick={onToggleShowAll}>
+          {showAll ? '收起' : '查看全部'}
+        </ActionButton>
+      ) : null}
+    </Card>
+  );
+}
+
+function TeachingNotesSection({ notes }: { notes: Lesson[] }) {
+  if (notes.length === 0) {
+    return (
+      <Card className="py-8 text-center">
+        <p className="text-sm text-slate-500">还没有教学记录，记录课时时可以补充课堂内容和作业。</p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {notes.map((lesson) => (
+        <Card key={lesson.id}>
+          <p className="text-sm font-semibold text-ink">{formatLessonDateTime(lesson)}</p>
+          {lesson.content ? <p className="mt-3 text-sm text-slate-600">课堂内容：{truncateText(lesson.content, 46)}</p> : null}
+          {lesson.homework ? <p className="mt-2 text-sm text-slate-600">作业：{truncateText(lesson.homework, 46)}</p> : null}
+          {lesson.note ? <p className="mt-2 text-sm text-slate-500">备注：{truncateText(lesson.note, 46)}</p> : null}
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function StudentDetail({
+  student,
+  lessons,
+  schedules,
+  onBack,
+  onEdit,
+  onCreateLesson,
+  onNavigateToSchedule,
+  onSettleLessons,
+}: {
+  student: Student;
+  lessons: Lesson[];
+  schedules: Schedule[];
+  onBack: () => void;
+  onEdit: (student: Student) => void;
+  onCreateLesson: () => void;
+  onNavigateToSchedule: () => void;
+  onSettleLessons: (ids: string[]) => void;
+}) {
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const studentLessons = getStudentLessons(student.id, lessons);
+  const studentSchedules = getStudentSchedules(student.id, schedules);
+  const stats = getStudentStats(student, studentLessons);
+  const unsettledLessons = getStudentUnsettledLessons(student.id, lessons);
+  const settlementSummary = createStudentSettlementSummary(student, unsettledLessons);
+  const teachingNotes = getRecentTeachingNotes(student.id, lessons, 3);
+
+  async function handleCopySettlement() {
+    if (settlementSummary.lessons.length === 0) {
+      showToast('该学生暂无未结算课时', 'info');
+      return;
+    }
+
+    try {
+      await copyTextToClipboard(generateSettlementText(settlementSummary));
+      showToast('结算明细已复制');
+    } catch {
+      showToast('复制失败，请手动复制', 'error');
+    }
+  }
+
+  function handleSettleLesson(lesson: Lesson) {
+    const confirmed = window.confirm(`确定将 ${student.name} ${lesson.date} 的课时标记为已结算吗？`);
+    if (!confirmed) {
+      return;
+    }
+
+    onSettleLessons([lesson.id]);
+    showToast('已标记本节已收款');
+  }
+
+  function handleSettleAll() {
+    if (settlementSummary.lessons.length === 0) {
+      showToast('该学生暂无未结算课时', 'info');
+      return;
+    }
+
+    const confirmed = window.confirm(`确定将 ${student.name} 的 ${settlementSummary.lessonCount} 节课标记为已结算吗？`);
+    if (!confirmed) {
+      return;
+    }
+
+    onSettleLessons(settlementSummary.lessons.map((lesson) => lesson.id));
+    showToast('已标记全部已收款');
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex h-10 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          返回
+        </button>
+        <ActionButton className="inline-flex items-center justify-center gap-2" onClick={() => onEdit(student)}>
+          <Edit2 className="h-4 w-4" />
+          编辑学生
+        </ActionButton>
+      </div>
+
+      <Card>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-2xl font-semibold text-ink">{student.name}</p>
+            <p className="mt-2 text-sm text-slate-500">
+              {student.grade || '未填写年级'} · {student.subject || '未填写科目'}
+            </p>
+          </div>
+          <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700">
+            {student.isActive ? '活跃' : '已停用'}
+          </span>
+        </div>
+      </Card>
+
+      <SectionTitle>数据概览</SectionTitle>
+      <StatGrid stats={stats} />
+
+      <SectionTitle>学生设置</SectionTitle>
+      <StudentSettingsSummary student={student} />
+
+      <SectionTitle>课程安排</SectionTitle>
+      <StudentSchedulesSection schedules={studentSchedules} />
+
+      <SectionTitle>未结算明细</SectionTitle>
+      <StudentUnsettledSection
+        summary={settlementSummary}
+        onCopy={handleCopySettlement}
+        onSettleLesson={handleSettleLesson}
+        onSettleAll={handleSettleAll}
+      />
+
+      <SectionTitle>历史课时</SectionTitle>
+      <StudentHistorySection
+        lessons={studentLessons}
+        showAll={showAllHistory}
+        onToggleShowAll={() => setShowAllHistory((current) => !current)}
+      />
+
+      <SectionTitle>最近教学记录</SectionTitle>
+      <TeachingNotesSection notes={teachingNotes} />
+
+      <SectionTitle>快捷操作</SectionTitle>
+      <Card>
+        <div className="grid grid-cols-2 gap-2">
+          <ActionButton variant="primary" className="inline-flex items-center justify-center gap-2" onClick={onCreateLesson}>
+            <Plus className="h-4 w-4" />
+            新增课时
+          </ActionButton>
+          <ActionButton className="inline-flex items-center justify-center gap-2" onClick={onNavigateToSchedule}>
+            <BookOpen className="h-4 w-4" />
+            新增课程
+          </ActionButton>
+          <ActionButton className="inline-flex items-center justify-center gap-2" onClick={handleCopySettlement}>
+            <ReceiptText className="h-4 w-4" />
+            复制账单
+          </ActionButton>
+          <ActionButton className="inline-flex items-center justify-center gap-2" onClick={() => onEdit(student)}>
+            <Edit2 className="h-4 w-4" />
+            编辑学生
+          </ActionButton>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 interface StudentsProps {
   openCreateRequest?: boolean;
   onCreateRequestConsumed?: () => void;
+  onCreateLesson?: () => void;
+  onNavigateToSchedule?: () => void;
 }
 
-export function Students({ openCreateRequest = false, onCreateRequestConsumed }: StudentsProps) {
+export function Students({
+  openCreateRequest = false,
+  onCreateRequestConsumed,
+  onCreateLesson = () => undefined,
+  onNavigateToSchedule = () => undefined,
+}: StudentsProps) {
   const { students, addStudent, updateStudent, deleteStudent } = useStudents();
+  const { lessons, markLessonsSettled } = useLessons();
+  const { schedules } = useSchedules();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const formContainerRef = useRef<HTMLDivElement>(null);
+  const selectedStudent = selectedStudentId ? students.find((student) => student.id === selectedStudentId) : undefined;
 
   function openCreateForm() {
+    setSelectedStudentId(null);
     setEditingStudent(null);
     setIsFormOpen(true);
   }
@@ -439,6 +934,12 @@ export function Students({ openCreateRequest = false, onCreateRequestConsumed }:
       onCreateRequestConsumed?.();
     }
   }, [openCreateRequest, onCreateRequestConsumed]);
+
+  useEffect(() => {
+    if (selectedStudentId && !selectedStudent) {
+      setSelectedStudentId(null);
+    }
+  }, [selectedStudentId, selectedStudent]);
 
   useEffect(() => {
     if (!isFormOpen) {
@@ -476,8 +977,29 @@ export function Students({ openCreateRequest = false, onCreateRequestConsumed }:
     const confirmed = window.confirm(`确定删除学生「${student.name}」吗？`);
     if (confirmed) {
       deleteStudent(student.id);
+      if (selectedStudentId === student.id) {
+        setSelectedStudentId(null);
+      }
+      if (editingStudent?.id === student.id) {
+        closeForm();
+      }
       showToast('学生已删除');
     }
+  }
+
+  if (selectedStudent && !isFormOpen) {
+    return (
+      <StudentDetail
+        student={selectedStudent}
+        lessons={lessons}
+        schedules={schedules}
+        onBack={() => setSelectedStudentId(null)}
+        onEdit={openEditForm}
+        onCreateLesson={onCreateLesson}
+        onNavigateToSchedule={onNavigateToSchedule}
+        onSettleLessons={markLessonsSettled}
+      />
+    );
   }
 
   return (
@@ -506,9 +1028,25 @@ export function Students({ openCreateRequest = false, onCreateRequestConsumed }:
         </Card>
       ) : (
         <div className="space-y-3">
-          {students.map((student) => (
-            <StudentCard key={student.id} student={student} onEdit={openEditForm} onDelete={handleDelete} />
-          ))}
+          {students.map((student) => {
+            const studentLessons = getStudentLessons(student.id, lessons);
+            const stats = getStudentStats(student, studentLessons);
+
+            return (
+              <StudentCard
+                key={student.id}
+                student={student}
+                stats={stats}
+                onOpen={(item) => {
+                  setSelectedStudentId(item.id);
+                  setIsFormOpen(false);
+                  setEditingStudent(null);
+                }}
+                onEdit={openEditForm}
+                onDelete={handleDelete}
+              />
+            );
+          })}
         </div>
       )}
     </div>

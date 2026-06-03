@@ -6,6 +6,7 @@ import { SectionTitle } from '../components/SectionTitle';
 import { useLessons } from '../store/useLessons';
 import { useStudents } from '../store/useStudents';
 import type { Lesson } from '../types';
+import { copyTextToClipboard } from '../utils/clipboard';
 import { formatDuration, formatMoney } from '../utils/dashboardStats';
 import {
   formatLessonDateTime,
@@ -27,36 +28,6 @@ function summaryText(value?: string) {
   }
 
   return value.length > 28 ? `${value.slice(0, 28)}...` : value;
-}
-
-function fallbackCopyText(text: string) {
-  const textArea = document.createElement('textarea');
-  textArea.value = text;
-  textArea.setAttribute('readonly', 'true');
-  textArea.style.position = 'fixed';
-  textArea.style.left = '-9999px';
-  textArea.style.top = '0';
-  document.body.appendChild(textArea);
-  textArea.select();
-  const success = document.execCommand('copy');
-  document.body.removeChild(textArea);
-
-  if (!success) {
-    throw new Error('Copy command failed');
-  }
-}
-
-async function copyText(text: string) {
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return;
-    } catch {
-      // Some embedded browsers expose Clipboard API but deny write access.
-    }
-  }
-
-  fallbackCopyText(text);
 }
 
 function SettlementDetail({
@@ -121,7 +92,7 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
     const text = generateSettlementText(summary);
 
     try {
-      await copyText(text);
+      await copyTextToClipboard(text);
       setManualCopyText('');
       setNotice('结算明细已复制');
       showToast('结算明细已复制');

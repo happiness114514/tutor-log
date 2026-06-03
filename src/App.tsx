@@ -39,6 +39,12 @@ export function App() {
     setActivePage('settlement');
   }
 
+  function openSchedulePage() {
+    setPendingAction(null);
+    setPendingEditLessonId(null);
+    setActivePage('schedule');
+  }
+
   const pages = {
     dashboard: (
       <Dashboard
@@ -61,6 +67,8 @@ export function App() {
       <Students
         openCreateRequest={pendingAction === 'openNewStudent'}
         onCreateRequestConsumed={() => setPendingAction(null)}
+        onCreateLesson={openNewLesson}
+        onNavigateToSchedule={openSchedulePage}
       />
     ),
     settlement: <Settlement onNavigateToLessons={openNewLesson} />,
