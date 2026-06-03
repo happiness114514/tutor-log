@@ -1,3 +1,4 @@
+import { PlusCircle, UserPlus } from 'lucide-react';
 import { useRef } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
@@ -21,13 +22,6 @@ interface DashboardProps {
   onCreateLesson: () => void;
   onCreateStudent: () => void;
 }
-
-const toneClass = {
-  mint: 'bg-mint/10 text-mint',
-  coral: 'bg-coral/10 text-coral',
-  sunshine: 'bg-sunshine/20 text-amber-700',
-  blue: 'bg-sky-100 text-sky-700',
-};
 
 function todayLabel() {
   return new Intl.DateTimeFormat('zh-CN', {
@@ -54,10 +48,10 @@ export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
   const unsettledSummary = getUnsettledSummaryByStudent(students, lessons);
 
   const statCards = [
-    { label: '本月应收', value: formatMoney(stats.monthlyReceivable), tone: 'mint' as const },
-    { label: '本月已收', value: formatMoney(stats.monthlyReceived), tone: 'blue' as const },
-    { label: '当前未结算', value: formatMoney(stats.unsettledAmount), tone: 'coral' as const },
-    { label: '本月课时', value: formatDuration(stats.monthlyDuration), tone: 'sunshine' as const },
+    { label: '本月应收', value: formatMoney(stats.monthlyReceivable) },
+    { label: '本月已收', value: formatMoney(stats.monthlyReceived) },
+    { label: '当前未结算', value: formatMoney(stats.unsettledAmount) },
+    { label: '本月课时', value: formatDuration(stats.monthlyDuration) },
   ];
 
   function handleExport() {
@@ -91,7 +85,7 @@ export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
 
   return (
     <div>
-      <PageHeader title="家教课时本" subtitle={`今天 ${todayLabel()}`} />
+      <PageHeader title="家教课时本" subtitle={`专注记录，清晰管理 · ${todayLabel()}`} />
 
       {students.length === 0 ? (
         <Card className="mb-4">
@@ -102,34 +96,44 @@ export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
         </Card>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-3">
-        {statCards.map((stat) => (
-          <Card key={stat.label} className="p-3">
-            <p className="text-xs text-slate-500">{stat.label}</p>
-            <p className={`mt-2 inline-flex rounded-md px-2 py-1 text-lg font-bold ${toneClass[stat.tone]}`}>
-              {stat.value}
-            </p>
-          </Card>
-        ))}
-      </section>
+      <Card className="p-0">
+        <section className="grid grid-cols-2 divide-x divide-y divide-neutral-100 overflow-hidden rounded-2xl">
+          {statCards.map((stat) => (
+            <div key={stat.label} className="p-4">
+              <p className="text-xs text-neutral-500">{stat.label}</p>
+              <p className="mt-2 text-xl font-semibold tracking-normal text-neutral-950">{stat.value}</p>
+            </div>
+          ))}
+        </section>
+      </Card>
 
       <SectionTitle>快捷操作</SectionTitle>
       <div className="grid gap-3">
         <button
           type="button"
           onClick={onCreateLesson}
-          className="rounded-lg border border-mint bg-mint p-4 text-left text-white shadow-card"
+          className="flex items-center gap-3 rounded-2xl border border-neutral-900 bg-neutral-900 p-4 text-left text-white shadow-card transition active:bg-neutral-700"
         >
-          <p className="text-base font-semibold">新增课时</p>
-          <p className="mt-1 text-sm text-white/80">快速记录一节课</p>
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
+            <PlusCircle className="h-5 w-5" />
+          </span>
+          <span>
+            <span className="block text-base font-semibold">新增课时</span>
+            <span className="mt-1 block text-sm text-white/70">快速记录一节课</span>
+          </span>
         </button>
         <button
           type="button"
           onClick={onCreateStudent}
-          className="rounded-lg border border-line bg-white p-4 text-left text-ink shadow-card"
+          className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 text-left text-neutral-900 shadow-card transition active:bg-neutral-100"
         >
-          <p className="text-base font-semibold">新增学生</p>
-          <p className="mt-1 text-sm text-slate-500">添加新的家教学生</p>
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100">
+            <UserPlus className="h-5 w-5" />
+          </span>
+          <span>
+            <span className="block text-base font-semibold">新增学生</span>
+            <span className="mt-1 block text-sm text-neutral-500">添加新的家教学生</span>
+          </span>
         </button>
       </div>
 
@@ -168,7 +172,7 @@ export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
                         {student?.name ?? '未知学生'} · {student?.subject ?? '未填写科目'}
                       </p>
                     </div>
-                    <p className="text-base font-bold text-coral">{formatMoney(lesson.amount)}</p>
+                    <p className="text-base font-bold text-neutral-950">{formatMoney(lesson.amount)}</p>
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
                     {formatDuration(lesson.duration)} · {lesson.isSettled ? '已结算' : '未结算'}

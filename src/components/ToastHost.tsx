@@ -7,9 +7,9 @@ type ToastState = {
 };
 
 const toneClass: Record<ToastType, string> = {
-  success: 'border-mint/30 bg-mint text-white',
-  error: 'border-coral/30 bg-coral text-white',
-  info: 'border-slate-200 bg-ink text-white',
+  success: 'border-neutral-900 bg-neutral-900 text-white',
+  error: 'border-red-200 bg-red-50 text-red-700',
+  info: 'border-neutral-200 bg-white text-neutral-800',
 };
 
 export function ToastHost() {
@@ -39,7 +39,7 @@ export function ToastHost() {
 
   return (
     <div className="fixed bottom-24 left-1/2 z-50 w-[min(390px,calc(100vw-32px))] -translate-x-1/2 px-2">
-      <div className={`rounded-lg border px-4 py-3 text-center text-sm font-medium shadow-2xl ${toneClass[toast.type]}`}>
+      <div className={`rounded-2xl border px-4 py-3 text-center text-sm font-medium shadow-2xl ${toneClass[toast.type]}`}>
         {toast.message}
       </div>
     </div>

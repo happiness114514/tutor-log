@@ -6,8 +6,8 @@ interface TagProps {
 export function Tag({ children, active = false }: TagProps) {
   return (
     <span
-      className={`inline-flex h-8 items-center rounded-md border px-3 text-sm ${
-        active ? 'border-mint bg-mint/10 font-semibold text-mint' : 'border-line bg-white text-slate-600'
+      className={`inline-flex h-8 items-center rounded-full border px-3 text-sm ${
+        active ? 'border-neutral-900 bg-neutral-900 font-semibold text-white' : 'border-neutral-200 bg-white text-neutral-500'
       }`}
     >
       {children}

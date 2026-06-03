@@ -23,7 +23,7 @@ interface BottomNavProps {
 
 export function BottomNav({ activePage, onChange }: BottomNavProps) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto grid w-full max-w-[430px] grid-cols-5 border-t border-line bg-white px-1 pb-2 pt-2 shadow-[0_-8px_24px_rgba(31,41,51,0.08)]">
+    <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto grid w-full max-w-[430px] grid-cols-5 border-t border-neutral-200 bg-white/95 px-1 pb-2 pt-2 shadow-[0_-10px_30px_rgba(23,23,23,0.06)] backdrop-blur">
       {navItems.map((item) => {
         const Icon = item.icon;
         const active = item.id === activePage;
@@ -33,8 +33,8 @@ export function BottomNav({ activePage, onChange }: BottomNavProps) {
             key={item.id}
             type="button"
             onClick={() => onChange(item.id)}
-            className={`flex h-14 flex-col items-center justify-center gap-1 rounded-md text-xs transition ${
-              active ? 'bg-mint/10 font-semibold text-mint' : 'text-slate-500'
+            className={`flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs transition ${
+              active ? 'font-semibold text-neutral-950' : 'text-neutral-400'
             }`}
             aria-current={active ? 'page' : undefined}
           >

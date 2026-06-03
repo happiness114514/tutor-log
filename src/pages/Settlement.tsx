@@ -82,7 +82,7 @@ function SettlementDetail({
                     {summary.subject} · {getLessonStatusLabel(lesson.status)}
                   </p>
                 </div>
-                <p className="text-lg font-bold text-coral">{formatMoney(lesson.amount)}</p>
+                <p className="text-lg font-bold text-neutral-950">{formatMoney(lesson.amount)}</p>
               </div>
 
               <p className="mt-3 text-sm text-slate-700">时长：{formatDuration(lesson.duration)}</p>
@@ -97,7 +97,7 @@ function SettlementDetail({
         })}
       </div>
 
-      <div className="rounded-lg bg-mint/10 p-3 text-sm">
+      <div className="rounded-2xl bg-neutral-50 p-3 text-sm">
         <p className="font-semibold text-ink">明细合计</p>
         <p className="mt-2 text-slate-600">
           {summary.lessonCount} 次课 · {formatDuration(summary.duration)} · {formatMoney(summary.amount)}
@@ -176,14 +176,14 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
           {overviewItems.map((item) => (
             <div key={item.label} className="rounded-md bg-slate-50 p-3">
               <p className="text-xs text-slate-500">{item.label}</p>
-              <p className={`mt-2 text-lg font-bold ${item.highlight ? 'text-coral' : 'text-ink'}`}>{item.value}</p>
+              <p className={`mt-2 text-lg font-bold ${item.highlight ? 'text-neutral-950' : 'text-ink'}`}>{item.value}</p>
             </div>
           ))}
         </div>
       </Card>
 
       {notice ? (
-        <div className="mt-3 rounded-lg border border-mint/20 bg-mint/10 px-3 py-2 text-sm text-mint">{notice}</div>
+        <div className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700">{notice}</div>
       ) : null}
 
       {manualCopyText ? (
@@ -220,7 +220,7 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
                       {summary.subject} · 最近 {summary.latestLessonDate ?? '未填写日期'}
                     </p>
                   </div>
-                  <p className="text-xl font-bold text-coral">{formatMoney(summary.amount)}</p>
+                  <p className="text-xl font-bold text-neutral-950">{formatMoney(summary.amount)}</p>
                 </div>
 
                 <dl className="mt-4 grid grid-cols-3 gap-2 text-sm">
@@ -234,7 +234,7 @@ export function Settlement({ onNavigateToLessons }: SettlementProps) {
                   </div>
                   <div className="rounded-md bg-slate-50 p-2">
                     <dt className="text-xs text-slate-500">未结算金额</dt>
-                    <dd className="mt-1 font-semibold text-coral">{formatMoney(summary.amount)}</dd>
+                    <dd className="mt-1 font-semibold text-neutral-950">{formatMoney(summary.amount)}</dd>
                   </div>
                 </dl>
 

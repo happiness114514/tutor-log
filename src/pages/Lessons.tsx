@@ -387,11 +387,11 @@ function amountPreviewText(form: LessonFormState) {
 function statusBadgeClass(status: LessonStatus) {
   const base = 'inline-flex h-7 items-center rounded-full border px-3 text-xs font-semibold';
   const styles: Record<LessonStatus, string> = {
-    completed: 'border-mint/30 bg-mint/10 text-mint',
-    makeup: 'border-sky-200 bg-sky-50 text-sky-700',
-    trial: 'border-violet-200 bg-violet-50 text-violet-700',
-    leave: 'border-slate-200 bg-slate-100 text-slate-600',
-    cancelled: 'border-coral/25 bg-coral/10 text-coral',
+    completed: 'border-neutral-200 bg-neutral-100 text-neutral-700',
+    makeup: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+    trial: 'border-violet-100 bg-violet-50 text-violet-700',
+    leave: 'border-neutral-200 bg-neutral-100 text-neutral-500',
+    cancelled: 'border-red-100 bg-red-50 text-red-700',
   };
 
   return `${base} ${styles[status]}`;
@@ -400,8 +400,8 @@ function statusBadgeClass(status: LessonStatus) {
 function settlementBadgeClass(isSettled: boolean) {
   const base = 'inline-flex h-7 items-center rounded-full border px-3 text-xs font-semibold';
   return isSettled
-    ? `${base} border-mint/25 bg-mint/10 text-mint`
-    : `${base} border-coral/30 bg-coral/10 text-coral`;
+    ? `${base} border-emerald-100 bg-emerald-50 text-emerald-700`
+    : `${base} border-amber-100 bg-amber-50 text-amber-800`;
 }
 
 interface LessonFormProps {
@@ -730,7 +730,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
               type="button"
               onClick={() => updateSettlement(false)}
               className={`h-10 rounded-md text-sm font-semibold transition ${
-                !form.isSettled ? 'bg-coral text-white shadow-sm' : 'text-slate-500'
+                !form.isSettled ? 'bg-neutral-900 text-white shadow-sm' : 'text-slate-500'
               }`}
             >
               未结算
@@ -739,7 +739,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
               type="button"
               onClick={() => updateSettlement(true)}
               className={`h-10 rounded-md text-sm font-semibold transition ${
-                form.isSettled ? 'bg-mint text-white shadow-sm' : 'text-slate-500'
+                form.isSettled ? 'bg-neutral-900 text-white shadow-sm' : 'text-slate-500'
               }`}
             >
               已结算
@@ -747,8 +747,8 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
           </div>
         </div>
 
-        <div className="rounded-lg border border-mint/25 bg-mint/10 p-4">
-          <p className="text-xs font-medium text-mint">费用预览</p>
+        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+          <p className="text-xs font-medium text-neutral-500">费用预览</p>
           <p className="mt-2 text-lg font-bold text-ink">{amountPreviewText(form)}</p>
           <p className="mt-1 text-xs text-slate-500">
             课程状态：{statusLabel[form.status]}，{form.isSettled ? '已结算' : '未结算'}
@@ -766,7 +766,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
                   onClick={() => updateTrialFeeMode(mode)}
                   className={`h-9 rounded-md border px-1 text-xs font-medium ${
                     form.trialFeeMode === mode
-                      ? 'border-violet-500 bg-violet-500 text-white'
+                      ? 'border-neutral-900 bg-neutral-900 text-white'
                       : 'border-violet-100 bg-white text-violet-700'
                   }`}
                 >
@@ -940,7 +940,7 @@ function LessonCard({
             {student?.name ?? '未知学生'} · {subjectText}
           </p>
         </div>
-        <p className="text-xl font-bold text-coral">{formatMoney(lesson.amount)}</p>
+        <p className="text-xl font-bold text-neutral-950">{formatMoney(lesson.amount)}</p>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">

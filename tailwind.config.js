@@ -4,15 +4,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: '#1f2933',
-        paper: '#f7f8fa',
-        line: '#e4e7ec',
-        mint: '#4f9f8f',
-        coral: '#f08a7d',
-        sunshine: '#f4c95d',
+        ink: '#171717',
+        paper: '#f7f7f6',
+        line: '#e5e5e5',
+        mint: '#171717',
+        coral: '#9a3412',
+        sunshine: '#a3a3a3',
       },
       boxShadow: {
-        card: '0 8px 24px rgba(31, 41, 51, 0.06)',
+        card: '0 10px 28px rgba(23, 23, 23, 0.045)',
       },
     },
   },

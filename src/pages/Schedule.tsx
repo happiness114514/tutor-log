@@ -191,14 +191,14 @@ function summarizeWeekdays(weekdays: number[]) {
 
 function statusClassName(status: ScheduleInstance['status']) {
   if (status === 'recorded') {
-    return 'bg-mint/10 text-mint';
+    return 'bg-emerald-50 text-emerald-700';
   }
 
   if (status === 'ended_pending_record') {
-    return 'bg-coral/10 text-coral';
+    return 'bg-amber-50 text-amber-800';
   }
 
-  return 'bg-slate-100 text-slate-600';
+  return 'bg-neutral-100 text-neutral-600';
 }
 
 function ScheduleForm({
@@ -855,8 +855,8 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
       )}
 
       {notice ? (
-        <Card className="mb-4 border-mint/20 bg-mint/10">
-          <p className="text-sm text-mint">{notice}</p>
+        <Card className="mb-4 border-neutral-200 bg-neutral-50">
+          <p className="text-sm text-neutral-700">{notice}</p>
           {createdLessonId ? (
             <ActionButton className="mt-3 w-full" onClick={() => onOpenLessonEditor(createdLessonId)}>
               去补充内容

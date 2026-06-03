@@ -366,7 +366,7 @@ function StudentCard({
         </div>
         <span
           className={`rounded-md px-2 py-1 text-xs font-semibold ${
-            student.isActive ? 'bg-mint/10 text-mint' : 'bg-slate-100 text-slate-500'
+            student.isActive ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-500'
           }`}
         >
           {student.isActive ? '活跃' : '停用'}

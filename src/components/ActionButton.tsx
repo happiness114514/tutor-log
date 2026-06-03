@@ -8,13 +8,13 @@ interface ActionButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export function ActionButton({ children, variant = 'secondary', className = '', ...props }: ActionButtonProps) {
   const styles =
     variant === 'primary'
-      ? 'border-mint bg-mint text-white'
-      : 'border-line bg-white text-slate-700';
+      ? 'border-neutral-900 bg-neutral-900 text-white shadow-sm active:bg-neutral-700'
+      : 'border-neutral-200 bg-white text-neutral-700 active:bg-neutral-100';
 
   return (
     <button
       type="button"
-      className={`h-10 rounded-md border px-3 text-sm font-medium ${styles} ${className}`}
+      className={`h-10 rounded-xl border px-3 text-sm font-medium transition ${styles} ${className}`}
       {...props}
     >
       {children}

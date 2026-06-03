@@ -7,9 +7,9 @@ interface AppShellProps {
 
 export function AppShell({ content, nav }: AppShellProps) {
   return (
-    <main className="min-h-screen bg-slate-200 px-0 text-ink sm:px-6">
-      <div className="relative mx-auto min-h-screen w-full max-w-[430px] bg-paper shadow-2xl">
-        <div className="px-4 pb-28 pt-5">{content}</div>
+    <main className="min-h-screen bg-stone-100 px-0 text-ink sm:px-6">
+      <div className="relative mx-auto min-h-screen w-full max-w-[430px] bg-paper shadow-[0_24px_80px_rgba(23,23,23,0.10)]">
+        <div className="px-4 pb-32 pt-6">{content}</div>
         {nav}
       </div>
     </main>
