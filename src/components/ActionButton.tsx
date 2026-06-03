@@ -8,7 +8,7 @@ interface ActionButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export function ActionButton({ children, variant = 'secondary', className = '', ...props }: ActionButtonProps) {
   const styles =
     variant === 'primary'
-      ? 'border-neutral-900 bg-neutral-900 text-white shadow-sm active:bg-neutral-700'
+      ? 'border-neutral-800 bg-neutral-800 text-white shadow-sm active:bg-neutral-700'
       : 'border-neutral-200 bg-white text-neutral-700 active:bg-neutral-100';
 
   return (

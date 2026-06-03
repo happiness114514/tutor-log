@@ -1,4 +1,4 @@
-import { PlusCircle, UserPlus } from 'lucide-react';
+import { ChevronRight, PlusCircle, UserPlus } from 'lucide-react';
 import { useRef } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
@@ -112,15 +112,16 @@ export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
         <button
           type="button"
           onClick={onCreateLesson}
-          className="flex items-center gap-3 rounded-2xl border border-neutral-900 bg-neutral-900 p-4 text-left text-white shadow-card transition active:bg-neutral-700"
+          className="flex items-center gap-3 rounded-2xl border border-neutral-300 bg-white p-4 text-left text-neutral-900 shadow-card transition active:bg-neutral-100"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-800 text-white">
             <PlusCircle className="h-5 w-5" />
           </span>
-          <span>
+          <span className="min-w-0 flex-1">
             <span className="block text-base font-semibold">新增课时</span>
-            <span className="mt-1 block text-sm text-white/70">快速记录一节课</span>
+            <span className="mt-1 block text-sm text-neutral-500">快速记录一节课</span>
           </span>
+          <ChevronRight className="h-4 w-4 text-neutral-400" />
         </button>
         <button
           type="button"
@@ -130,10 +131,11 @@ export function Dashboard({ onCreateLesson, onCreateStudent }: DashboardProps) {
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100">
             <UserPlus className="h-5 w-5" />
           </span>
-          <span>
+          <span className="min-w-0 flex-1">
             <span className="block text-base font-semibold">新增学生</span>
             <span className="mt-1 block text-sm text-neutral-500">添加新的家教学生</span>
           </span>
+          <ChevronRight className="h-4 w-4 text-neutral-400" />
         </button>
       </div>
 

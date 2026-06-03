@@ -730,7 +730,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
               type="button"
               onClick={() => updateSettlement(false)}
               className={`h-10 rounded-md text-sm font-semibold transition ${
-                !form.isSettled ? 'bg-neutral-900 text-white shadow-sm' : 'text-slate-500'
+                !form.isSettled ? 'bg-neutral-800 text-white shadow-sm' : 'text-slate-500'
               }`}
             >
               未结算
@@ -739,7 +739,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
               type="button"
               onClick={() => updateSettlement(true)}
               className={`h-10 rounded-md text-sm font-semibold transition ${
-                form.isSettled ? 'bg-neutral-900 text-white shadow-sm' : 'text-slate-500'
+                form.isSettled ? 'bg-neutral-800 text-white shadow-sm' : 'text-slate-500'
               }`}
             >
               已结算
@@ -766,7 +766,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
                   onClick={() => updateTrialFeeMode(mode)}
                   className={`h-9 rounded-md border px-1 text-xs font-medium ${
                     form.trialFeeMode === mode
-                      ? 'border-neutral-900 bg-neutral-900 text-white'
+                      ? 'border-neutral-800 bg-neutral-800 text-white'
                       : 'border-violet-100 bg-white text-violet-700'
                   }`}
                 >

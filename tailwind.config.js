@@ -7,8 +7,8 @@ export default {
         ink: '#171717',
         paper: '#f7f7f6',
         line: '#e5e5e5',
-        mint: '#171717',
-        coral: '#9a3412',
+        mint: '#3f3f46',
+        coral: '#b45309',
         sunshine: '#a3a3a3',
       },
       boxShadow: {

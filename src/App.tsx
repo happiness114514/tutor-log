@@ -62,7 +62,11 @@ export function App() {
   return (
     <>
       <AppShell
-        content={pages[activePage]}
+        content={
+          <div key={activePage} className="page-transition">
+            {pages[activePage]}
+          </div>
+        }
         nav={<BottomNav activePage={activePage} onChange={setActivePage} />}
       />
       <ToastHost />

@@ -34,7 +34,7 @@ export function BottomNav({ activePage, onChange }: BottomNavProps) {
             type="button"
             onClick={() => onChange(item.id)}
             className={`flex h-14 flex-col items-center justify-center gap-1 rounded-xl text-xs transition ${
-              active ? 'font-semibold text-neutral-950' : 'text-neutral-400'
+              active ? 'font-semibold text-neutral-900' : 'text-neutral-400'
             }`}
             aria-current={active ? 'page' : undefined}
           >

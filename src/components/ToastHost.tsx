@@ -7,7 +7,7 @@ type ToastState = {
 };
 
 const toneClass: Record<ToastType, string> = {
-  success: 'border-neutral-900 bg-neutral-900 text-white',
+  success: 'border-neutral-800 bg-neutral-800 text-white',
   error: 'border-red-200 bg-red-50 text-red-700',
   info: 'border-neutral-200 bg-white text-neutral-800',
 };
