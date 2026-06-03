@@ -2,6 +2,7 @@ import { Edit2, Pause, Play, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
+import { AppDateInput, AppTimeInput } from '../components/AppDateTimePicker';
 import { AppSelect } from '../components/AppSelect';
 import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
@@ -440,12 +441,12 @@ function ScheduleForm({
         ) : (
           <div>
             <FieldLabel required>日期</FieldLabel>
-            <input
+            <AppDateInput
               ref={setFieldRef('date')}
-              className={fieldClassName(Boolean(errors.date))}
-              type="date"
+              title="选择课程日期"
+              hasError={Boolean(errors.date)}
               value={form.date}
-              onChange={(event) => updateForm({ date: event.target.value })}
+              onChange={(date) => updateForm({ date })}
             />
             <FieldError message={errors.date} />
           </div>
@@ -454,23 +455,23 @@ function ScheduleForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel required>开始时间</FieldLabel>
-            <input
+            <AppTimeInput
               ref={setFieldRef('startTime')}
-              className={fieldClassName(Boolean(errors.startTime))}
-              type="time"
+              title="选择开始时间"
+              hasError={Boolean(errors.startTime)}
               value={form.startTime}
-              onChange={(event) => updateStartTime(event.target.value)}
+              onChange={updateStartTime}
             />
             <FieldError message={errors.startTime} />
           </div>
           <div>
             <FieldLabel required>结束时间</FieldLabel>
-            <input
+            <AppTimeInput
               ref={setFieldRef('endTime')}
-              className={fieldClassName(Boolean(errors.endTime))}
-              type="time"
+              title="选择结束时间"
+              hasError={Boolean(errors.endTime)}
               value={form.endTime}
-              onChange={(event) => updateEndTime(event.target.value)}
+              onChange={updateEndTime}
             />
             <FieldError message={errors.endTime} />
           </div>

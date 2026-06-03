@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, Edit2, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
+import { AppDateInput, AppTimeInput } from '../components/AppDateTimePicker';
 import { AppSelect } from '../components/AppSelect';
 import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
@@ -653,22 +654,21 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel required>日期</FieldLabel>
-            <input
+            <AppDateInput
               ref={setFieldRef('date')}
-              className={fieldClassName(Boolean(errors.date))}
-              type="date"
+              title="选择课时日期"
+              hasError={Boolean(errors.date)}
               value={form.date}
-              onChange={(event) => updateQuickFields({ date: event.target.value })}
+              onChange={(date) => updateQuickFields({ date })}
             />
             <FieldError message={errors.date} />
           </div>
           <div>
             <FieldLabel>开始时间</FieldLabel>
-            <input
-              className={fieldClassName()}
-              type="time"
+            <AppTimeInput
+              title="选择开始时间"
               value={form.startTime}
-              onChange={(event) => updateQuickFields({ startTime: event.target.value })}
+              onChange={(startTime) => updateQuickFields({ startTime })}
             />
           </div>
         </div>
