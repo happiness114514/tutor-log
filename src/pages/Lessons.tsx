@@ -8,6 +8,7 @@ import { useLessons, type LessonInput } from '../store/useLessons';
 import { useStudents } from '../store/useStudents';
 import type { BillingType, Lesson, LessonStatus, Student, TrialFeeMode } from '../types';
 import { formatMoney } from '../utils/dashboardStats';
+import { createDeletedStudentSnapshot, createStudentSnapshot, getStudentDisplay } from '../utils/studentDisplay';
 import { showToast } from '../utils/toast';
 
 type DurationMode = 'preset' | 'custom';
@@ -282,9 +283,13 @@ function lessonToForm(lesson: Lesson): LessonFormState {
   };
 }
 
-function toLessonInput(form: LessonFormState): LessonInput {
+function toLessonInput(form: LessonFormState, students: Student[]): LessonInput {
+  const selectedStudent = students.find((student) => student.id === form.studentId);
+  const snapshot = selectedStudent ? createStudentSnapshot(selectedStudent) : createDeletedStudentSnapshot();
+
   return {
     studentId: form.studentId,
+    ...snapshot,
     date: form.date,
     startTime: form.startTime,
     endTime: form.endTime,
@@ -589,7 +594,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
     }
 
     setErrors({});
-    onSave(toLessonInput(form));
+    onSave(toLessonInput(form, students));
   }
 
   return (
@@ -927,7 +932,7 @@ function LessonCard({
   onDelete: (lesson: Lesson) => void;
 }) {
   const timeText = lesson.startTime && lesson.endTime ? `${lesson.startTime}-${lesson.endTime}` : '未填写时间';
-  const subjectText = student?.subject ?? '未填写科目';
+  const studentDisplay = getStudentDisplay(student, lesson);
 
   return (
     <Card>
@@ -937,7 +942,7 @@ function LessonCard({
             {lesson.date} {timeText}
           </p>
           <p className="mt-1 text-sm text-slate-600">
-            {student?.name ?? '未知学生'} · {subjectText}
+            {studentDisplay.name} · {studentDisplay.subject}
           </p>
         </div>
         <p className="text-xl font-bold text-neutral-950">{formatMoney(lesson.amount)}</p>
@@ -1050,11 +1055,19 @@ export function Lessons({
   }
 
   function handleSave(input: LessonInput) {
+    const selectedStudent = students.find((student) => student.id === input.studentId);
+    const snapshot = selectedStudent
+      ? createStudentSnapshot(selectedStudent)
+      : editingLesson?.studentId === input.studentId
+        ? createDeletedStudentSnapshot(editingLesson)
+        : createDeletedStudentSnapshot();
+    const normalizedInput = { ...input, ...snapshot };
+
     if (editingLesson) {
-      updateLesson(editingLesson.id, input);
+      updateLesson(editingLesson.id, normalizedInput);
       showToast('课时已更新');
     } else {
-      addLesson(input);
+      addLesson(normalizedInput);
       showToast('课时已保存');
     }
 
@@ -1063,7 +1076,8 @@ export function Lessons({
 
   function handleDelete(lesson: Lesson) {
     const student = studentMap.get(lesson.studentId);
-    const confirmed = window.confirm(`确定删除 ${student?.name ?? '该学生'} 在 ${lesson.date} 的课时记录吗？`);
+    const studentDisplay = getStudentDisplay(student, lesson);
+    const confirmed = window.confirm(`确定删除 ${studentDisplay.name} 在 ${lesson.date} 的课时记录吗？`);
     if (confirmed) {
       deleteLesson(lesson.id);
       showToast('课时已删除');
@@ -1097,7 +1111,7 @@ export function Lessons({
         </div>
       ) : null}
 
-      {students.length === 0 ? (
+      {lessons.length === 0 && students.length === 0 ? (
         <Card className="py-10 text-center">
           <p className="text-sm text-slate-500">还没有学生，先添加学生后再记录课时。</p>
           <ActionButton variant="primary" className="mt-4" onClick={onNavigateToStudents}>

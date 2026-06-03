@@ -1,6 +1,7 @@
 import type { Lesson, Schedule, Student } from '../types';
 import type { LessonInput } from '../store/useLessons';
 import { formatMoney, isEffectiveLesson } from './dashboardStats';
+import { createDeletedStudentSnapshot, getStudentDisplay } from './studentDisplay';
 
 export type ScheduleInstanceStatus = 'pending' | 'upcoming' | 'ended_pending_record' | 'recorded';
 
@@ -158,7 +159,7 @@ function createInstance(
     schedule,
     date,
     student,
-    subject: schedule.subject || student?.subject || '未填写科目',
+    subject: schedule.subject || getStudentDisplay(student, schedule).subject,
     generatedLesson: findGeneratedLesson(schedule.id, date, lessons),
     status: getInstanceStatus(schedule, date, lessons, now),
   };
@@ -240,6 +241,11 @@ export function createLessonFromSchedule(schedule: Schedule, date: string): Less
     amount,
     status: 'completed',
     isSettled: false,
+    ...createDeletedStudentSnapshot({
+      studentNameSnapshot: schedule.studentNameSnapshot,
+      studentSubjectSnapshot: schedule.studentSubjectSnapshot || schedule.subject,
+      studentGradeSnapshot: schedule.studentGradeSnapshot,
+    }),
   };
 }
 
@@ -265,13 +271,14 @@ export function getEndedUnrecordedScheduleReminders(
 
 export function getUnsettledReminders(students: Student[], lessons: Lesson[]): TodayTodo[] {
   const studentMap = new Map(students.map((student) => [student.id, student]));
-  const summaryMap = new Map<string, { student?: Student; lessonCount: number; amount: number }>();
+  const summaryMap = new Map<string, { student?: Student; sourceLesson: Lesson; lessonCount: number; amount: number }>();
 
   lessons
     .filter((lesson) => isEffectiveLesson(lesson) && !lesson.isSettled)
     .forEach((lesson) => {
       const current = summaryMap.get(lesson.studentId) ?? {
         student: studentMap.get(lesson.studentId),
+        sourceLesson: lesson,
         lessonCount: 0,
         amount: 0,
       };
@@ -285,7 +292,7 @@ export function getUnsettledReminders(students: Student[], lessons: Lesson[]): T
 
   return [...summaryMap.entries()]
     .map(([studentId, summary]) => {
-      const studentName = summary.student?.name ?? '未知学生';
+      const studentName = getStudentDisplay(summary.student, summary.sourceLesson).name;
 
       return {
         id: `unsettled-${studentId}`,
@@ -305,7 +312,7 @@ export function getTodayTodos(schedules: Schedule[], lessons: Lesson[], students
       id: `ended-${instance.id}`,
       type: 'ended_unrecorded',
       label: '待记录',
-      message: `${instance.student?.name ?? '未知学生'} · ${instance.subject}课程已结束，记得记录课时`,
+      message: `${getStudentDisplay(instance.student, instance.schedule).name} · ${instance.subject}课程已结束，记得记录课时`,
       priority: 1,
       instance,
     }),
@@ -315,7 +322,7 @@ export function getTodayTodos(schedules: Schedule[], lessons: Lesson[], students
     id: `upcoming-${instance.id}`,
     type: 'upcoming',
     label: '即将上课',
-    message: `${instance.schedule.startTime} ${instance.student?.name ?? '未知学生'} · ${instance.subject}即将上课`,
+    message: `${instance.schedule.startTime} ${getStudentDisplay(instance.student, instance.schedule).name} · ${instance.subject}即将上课`,
     priority: 2,
     instance,
   }));

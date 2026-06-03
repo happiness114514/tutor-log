@@ -1,5 +1,6 @@
 import type { Lesson, LessonStatus, Student } from '../types';
 import { formatDuration, formatMoney, isEffectiveLesson } from './dashboardStats';
+import { getStudentDisplay } from './studentDisplay';
 
 export type SettlementStudentSummary = {
   studentId: string;
@@ -68,12 +69,13 @@ export function getUnsettledLessonsByStudent(students: Student[], lessons: Lesso
     .map(([studentId, groupLessons]): SettlementStudentSummary => {
       const sortedLessons = sortLessonsDesc(groupLessons);
       const student = studentMap.get(studentId);
+      const studentDisplay = getStudentDisplay(student, sortedLessons[0]);
 
       return {
         studentId,
         student,
-        studentName: student?.name ?? '未知学生',
-        subject: student?.subject ?? '未填写科目',
+        studentName: studentDisplay.name,
+        subject: studentDisplay.subject,
         lessons: sortedLessons,
         lessonCount: sortedLessons.length,
         duration: sortedLessons.reduce((sum, lesson) => sum + lesson.duration, 0),

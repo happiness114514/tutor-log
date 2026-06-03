@@ -25,6 +25,9 @@ export type ScheduleStatus = 'active' | 'paused' | 'ended';
 export type Schedule = {
   id: string;
   studentId: string;
+  studentNameSnapshot?: string;
+  studentSubjectSnapshot?: string;
+  studentGradeSnapshot?: string;
   title?: string;
   subject?: string;
   scheduleType: ScheduleType;
@@ -66,6 +69,9 @@ export type Student = {
 export type Lesson = {
   id: string;
   studentId: string;
+  studentNameSnapshot?: string;
+  studentSubjectSnapshot?: string;
+  studentGradeSnapshot?: string;
   scheduleId?: string;
   date: string;
   startTime?: string;

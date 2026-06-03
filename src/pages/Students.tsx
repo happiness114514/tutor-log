@@ -914,8 +914,8 @@ export function Students({
   onNavigateToSchedule = () => undefined,
 }: StudentsProps) {
   const { students, addStudent, updateStudent, deleteStudent } = useStudents();
-  const { lessons, markLessonsSettled } = useLessons();
-  const { schedules } = useSchedules();
+  const { lessons, markLessonsSettled, preserveStudentSnapshot: preserveLessonStudentSnapshot } = useLessons();
+  const { schedules, preserveStudentSnapshot: preserveScheduleStudentSnapshot } = useSchedules();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -974,8 +974,16 @@ export function Students({
   }
 
   function handleDelete(student: Student) {
-    const confirmed = window.confirm(`确定删除学生「${student.name}」吗？`);
+    const lessonCount = lessons.filter((lesson) => lesson.studentId === student.id).length;
+    const scheduleCount = schedules.filter((schedule) => schedule.studentId === student.id).length;
+    const message =
+      lessonCount > 0 || scheduleCount > 0
+        ? `该学生有关联的 ${lessonCount} 条课时记录和 ${scheduleCount} 条课程安排。删除学生档案后，这些历史数据仍会保留。是否确认删除？`
+        : '删除该学生后，学生档案将从学生列表中移除，但该学生的历史课时和课程记录会继续保留。是否确认删除？';
+    const confirmed = window.confirm(message);
     if (confirmed) {
+      preserveLessonStudentSnapshot(student);
+      preserveScheduleStudentSnapshot(student);
       deleteStudent(student.id);
       if (selectedStudentId === student.id) {
         setSelectedStudentId(null);

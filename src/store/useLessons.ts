@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { BillingType, Lesson, LessonStatus, TrialFeeMode } from '../types';
+import type { BillingType, Lesson, LessonStatus, Student, TrialFeeMode } from '../types';
 import { readStorage, writeStorage } from '../utils/storage';
+import { createStudentSnapshot } from '../utils/studentDisplay';
 
 const STORAGE_KEY = 'tutor-log.lessons';
 
 export type LessonInput = {
   studentId: string;
+  studentNameSnapshot?: string;
+  studentSubjectSnapshot?: string;
+  studentGradeSnapshot?: string;
   scheduleId?: string;
   date: string;
   startTime?: string;
@@ -102,6 +106,9 @@ export function useLessons() {
     const lesson: Lesson = {
       ...input,
       id: createLessonId(),
+      studentNameSnapshot: normalizeText(input.studentNameSnapshot),
+      studentSubjectSnapshot: normalizeText(input.studentSubjectSnapshot),
+      studentGradeSnapshot: normalizeText(input.studentGradeSnapshot),
       startTime: normalizeText(input.startTime),
       endTime: normalizeText(input.endTime),
       content: normalizeText(input.content),
@@ -124,6 +131,9 @@ export function useLessons() {
           ? {
               ...lesson,
               ...input,
+              studentNameSnapshot: normalizeText(input.studentNameSnapshot),
+              studentSubjectSnapshot: normalizeText(input.studentSubjectSnapshot),
+              studentGradeSnapshot: normalizeText(input.studentGradeSnapshot),
               startTime: normalizeText(input.startTime),
               endTime: normalizeText(input.endTime),
               content: normalizeText(input.content),
@@ -157,11 +167,29 @@ export function useLessons() {
     );
   }
 
+  function preserveStudentSnapshot(student: Student) {
+    const snapshot = createStudentSnapshot(student);
+    const now = new Date().toISOString();
+
+    setLessons((current) =>
+      current.map((lesson) =>
+        lesson.studentId === student.id
+          ? {
+              ...lesson,
+              ...snapshot,
+              updatedAt: now,
+            }
+          : lesson,
+      ),
+    );
+  }
+
   return {
     lessons: sortedLessons,
     addLesson,
     updateLesson,
     deleteLesson,
     markLessonsSettled,
+    preserveStudentSnapshot,
   };
 }

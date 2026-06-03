@@ -1,3 +1,6 @@
+import type { Lesson, Schedule, Student } from '../types';
+import { hydrateLessonSnapshot, hydrateScheduleSnapshot } from './studentDisplay';
+
 const BACKUP_VERSION = '1.0.0';
 
 const STORAGE_KEYS = {
@@ -44,6 +47,16 @@ function assertBackupFile(value: unknown): asserts value is BackupFile {
   }
 }
 
+function normalizeBackupData(data: BackupData): BackupData {
+  const students = data.students as Student[];
+
+  return {
+    ...data,
+    lessons: (data.lessons as Lesson[]).map((lesson) => hydrateLessonSnapshot(lesson, students)),
+    schedules: (data.schedules as Schedule[]).map((schedule) => hydrateScheduleSnapshot(schedule, students)),
+  };
+}
+
 export function createBackupFile(): BackupFile {
   return {
     appName: 'TutorLog',
@@ -78,7 +91,9 @@ export async function parseBackupFile(file: File) {
 }
 
 export function importLocalData(backup: BackupFile) {
-  window.localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(backup.data.students));
-  window.localStorage.setItem(STORAGE_KEYS.lessons, JSON.stringify(backup.data.lessons));
-  window.localStorage.setItem(STORAGE_KEYS.schedules, JSON.stringify(backup.data.schedules));
+  const normalizedData = normalizeBackupData(backup.data);
+
+  window.localStorage.setItem(STORAGE_KEYS.students, JSON.stringify(normalizedData.students));
+  window.localStorage.setItem(STORAGE_KEYS.lessons, JSON.stringify(normalizedData.lessons));
+  window.localStorage.setItem(STORAGE_KEYS.schedules, JSON.stringify(normalizedData.schedules));
 }

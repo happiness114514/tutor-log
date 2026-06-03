@@ -25,6 +25,7 @@ import {
   hasGeneratedLesson,
   type ScheduleInstance,
 } from '../utils/scheduleUtils';
+import { createDeletedStudentSnapshot, createStudentSnapshot, getStudentDisplay } from '../utils/studentDisplay';
 import { showToast } from '../utils/toast';
 
 type ScheduleView = 'today' | 'week' | 'recurring';
@@ -160,9 +161,13 @@ function scheduleToForm(schedule: ScheduleModel): ScheduleFormState {
   };
 }
 
-function toScheduleInput(form: ScheduleFormState): ScheduleInput {
+function toScheduleInput(form: ScheduleFormState, students: Student[]): ScheduleInput {
+  const selectedStudent = students.find((student) => student.id === form.studentId);
+  const snapshot = selectedStudent ? createStudentSnapshot(selectedStudent) : createDeletedStudentSnapshot();
+
   return {
     studentId: form.studentId,
+    ...snapshot,
     subject: form.subject,
     scheduleType: form.scheduleType,
     repeatRule:
@@ -341,7 +346,7 @@ function ScheduleForm({
       return;
     }
 
-    onSave(toScheduleInput(form));
+    onSave(toScheduleInput(form, students));
   }
 
   const isRecurring = form.scheduleType === 'recurring';
@@ -568,6 +573,7 @@ function InstanceCard({
   onPause: (schedule: ScheduleModel) => void;
 }) {
   const schedule = instance.schedule;
+  const studentDisplay = getStudentDisplay(instance.student, schedule);
 
   return (
     <Card>
@@ -577,7 +583,7 @@ function InstanceCard({
             {schedule.startTime}-{schedule.endTime}
           </p>
           <p className="mt-1 text-sm text-slate-600">
-            {instance.student?.name ?? '未知学生'} · {instance.subject}
+            {studentDisplay.name} · {instance.subject}
           </p>
         </div>
         <span className={`rounded-md px-2 py-1 text-xs font-semibold ${statusClassName(instance.status)}`}>
@@ -628,12 +634,14 @@ function RecurringScheduleCard({
   onToggleStatus: (schedule: ScheduleModel) => void;
   onDelete: (schedule: ScheduleModel) => void;
 }) {
+  const studentDisplay = getStudentDisplay(student, schedule);
+
   return (
     <Card>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-lg font-semibold text-ink">{student?.name ?? '未知学生'}</p>
-          <p className="mt-1 text-sm text-slate-500">{schedule.subject || student?.subject || '未填写科目'}</p>
+          <p className="text-lg font-semibold text-ink">{studentDisplay.name}</p>
+          <p className="mt-1 text-sm text-slate-500">{schedule.subject || studentDisplay.subject}</p>
         </div>
         <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">
           {statusLabel[schedule.status]}
@@ -737,12 +745,20 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
   }
 
   function handleSave(input: ScheduleInput) {
+    const selectedStudent = students.find((student) => student.id === input.studentId);
+    const snapshot = selectedStudent
+      ? createStudentSnapshot(selectedStudent)
+      : editingSchedule?.studentId === input.studentId
+        ? createDeletedStudentSnapshot(editingSchedule)
+        : createDeletedStudentSnapshot();
+    const normalizedInput = { ...input, ...snapshot };
+
     if (editingSchedule) {
-      updateSchedule(editingSchedule.id, input);
+      updateSchedule(editingSchedule.id, normalizedInput);
       setNotice('课程已更新');
       showToast('课程已更新');
     } else {
-      addSchedule(input);
+      addSchedule(normalizedInput);
       setNotice('课程已保存');
       showToast('课程已保存');
     }
@@ -804,7 +820,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
     );
   }
 
-  if (students.length === 0) {
+  if (students.length === 0 && schedules.length === 0) {
     return (
       <div>
         <PageHeader title="课程表" />
@@ -835,7 +851,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
         ))}
       </div>
 
-      {!formState ? (
+      {!formState && students.length > 0 ? (
         <div className="mb-4 grid grid-cols-2 gap-3">
           <ActionButton variant="primary" className="inline-flex items-center justify-center gap-2" onClick={() => openCreateForm('recurring')}>
             <Plus className="h-4 w-4" />
@@ -846,7 +862,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
             新增临时课程
           </ActionButton>
         </div>
-      ) : (
+      ) : formState ? (
         <div ref={formContainerRef} className="scroll-mt-4 scroll-mb-28">
           <ScheduleForm
             key={editingSchedule?.id ?? formState.scheduleType}
@@ -857,7 +873,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
             onSave={handleSave}
           />
         </div>
-      )}
+      ) : null}
 
       {notice ? (
         <Card className="mb-4 border-neutral-200 bg-neutral-50">

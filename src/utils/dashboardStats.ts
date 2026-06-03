@@ -1,4 +1,5 @@
 import type { Lesson, Student } from '../types';
+import { getStudentDisplay } from './studentDisplay';
 
 export type DashboardStats = {
   monthlyReceivable: number;
@@ -94,9 +95,10 @@ export function getUnsettledSummaryByStudent(students: Student[], lessons: Lesso
     .filter((lesson) => isEffectiveLesson(lesson) && !lesson.isSettled)
     .forEach((lesson) => {
       const student = studentMap.get(lesson.studentId);
+      const studentDisplay = getStudentDisplay(student, lesson);
       const current = summaryMap.get(lesson.studentId) ?? {
         studentId: lesson.studentId,
-        studentName: student?.name ?? '未知学生',
+        studentName: studentDisplay.name,
         lessonCount: 0,
         amount: 0,
       };

@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { BillingType, Schedule, ScheduleStatus, ScheduleType } from '../types';
+import type { BillingType, Schedule, ScheduleStatus, ScheduleType, Student } from '../types';
 import { readStorage, writeStorage } from '../utils/storage';
+import { createStudentSnapshot } from '../utils/studentDisplay';
 
 const STORAGE_KEY = 'tutor-log.schedules';
 
 export type ScheduleInput = {
   studentId: string;
+  studentNameSnapshot?: string;
+  studentSubjectSnapshot?: string;
+  studentGradeSnapshot?: string;
   title?: string;
   subject?: string;
   scheduleType: ScheduleType;
@@ -64,6 +68,9 @@ function normalizeText(value?: string) {
 function normalizeInput(input: ScheduleInput) {
   return {
     ...input,
+    studentNameSnapshot: normalizeText(input.studentNameSnapshot),
+    studentSubjectSnapshot: normalizeText(input.studentSubjectSnapshot),
+    studentGradeSnapshot: normalizeText(input.studentGradeSnapshot),
     title: normalizeText(input.title),
     subject: normalizeText(input.subject),
     location: normalizeText(input.location),
@@ -143,11 +150,29 @@ export function useSchedules() {
     );
   }
 
+  function preserveStudentSnapshot(student: Student) {
+    const snapshot = createStudentSnapshot(student);
+    const now = new Date().toISOString();
+
+    setSchedules((current) =>
+      current.map((schedule) =>
+        schedule.studentId === student.id
+          ? {
+              ...schedule,
+              ...snapshot,
+              updatedAt: now,
+            }
+          : schedule,
+      ),
+    );
+  }
+
   return {
     schedules: sortedSchedules,
     addSchedule,
     updateSchedule,
     deleteSchedule,
     updateScheduleStatus,
+    preserveStudentSnapshot,
   };
 }

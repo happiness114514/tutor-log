@@ -14,7 +14,6 @@ import {
   formatMoney,
   getDashboardStats,
   getRecentLessons,
-  getStudentById,
 } from '../utils/dashboardStats';
 import {
   createLessonFromSchedule,
@@ -22,6 +21,7 @@ import {
   hasGeneratedLesson,
   type TodayTodo,
 } from '../utils/scheduleUtils';
+import { getLessonStudentDisplay } from '../utils/studentDisplay';
 import { queueToast, showToast } from '../utils/toast';
 
 interface DashboardProps {
@@ -215,7 +215,7 @@ export function Dashboard({ onCreateLesson, onCreateStudent, onNavigateToSettlem
         ) : (
           <div className="divide-y divide-line">
             {recentLessons.map((lesson) => {
-              const student = getStudentById(students, lesson.studentId);
+              const studentDisplay = getLessonStudentDisplay(lesson, students);
 
               return (
                 <div key={lesson.id} className="py-3 first:pt-0 last:pb-0">
@@ -225,7 +225,7 @@ export function Dashboard({ onCreateLesson, onCreateStudent, onNavigateToSettlem
                         {lesson.date} {timeText(lesson)}
                       </p>
                       <p className="mt-1 text-sm text-slate-500">
-                        {student?.name ?? '未知学生'} · {student?.subject ?? '未填写科目'}
+                        {studentDisplay.name} · {studentDisplay.subject}
                       </p>
                     </div>
                     <p className="text-base font-bold text-neutral-950">{formatMoney(lesson.amount)}</p>
