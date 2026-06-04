@@ -7,6 +7,7 @@ import { AppSelect } from '../components/AppSelect';
 import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
+import { useAppSettings } from '../store/useAppSettings';
 import { useLessons, type LessonInput } from '../store/useLessons';
 import { useStudents } from '../store/useStudents';
 import type { BillingType, Lesson, LessonStatus, Student, TrialFeeMode } from '../types';
@@ -246,9 +247,9 @@ function inferTrialFeeMode(lesson: Lesson): TrialFeeMode {
   return 'custom';
 }
 
-function emptyForm(students: Student[]): LessonFormState {
+function emptyForm(students: Student[], defaultDuration: number): LessonFormState {
   const firstStudent = students[0];
-  const duration = firstStudent?.defaultDuration ?? 2;
+  const duration = firstStudent?.defaultDuration ?? defaultDuration;
   const durationParts = durationToParts(duration);
   const rate = firstStudent?.defaultRate ?? 150;
   const billingType = firstStudent?.billingType ?? 'hourly';
@@ -998,6 +999,7 @@ export function Lessons({
   onEditRequestConsumed,
   onEditingChange = () => undefined,
 }: LessonsProps) {
+  const { settings } = useAppSettings();
   const { students } = useStudents();
   const { lessons, addLesson, updateLesson, deleteLesson } = useLessons();
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -1098,7 +1100,7 @@ export function Lessons({
           <h1 className="text-xl font-semibold text-neutral-900">{lessonFormTitle}</h1>
         </div>
         <LessonForm
-          initialValue={editingLesson ? lessonToForm(editingLesson) : emptyForm(students)}
+          initialValue={editingLesson ? lessonToForm(editingLesson) : emptyForm(students, settings.defaultDuration)}
           students={students}
           defaultMoreOpen={shouldOpenMoreSettings(editingLesson)}
           isEditing={Boolean(editingLesson)}

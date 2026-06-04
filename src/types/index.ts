@@ -1,4 +1,4 @@
-export type PageId = 'dashboard' | 'schedule' | 'lessons' | 'students' | 'settlement' | 'statistics';
+export type PageId = 'dashboard' | 'schedule' | 'lessons' | 'students' | 'settlement' | 'statistics' | 'settings';
 
 export type LessonStatus = 'completed' | 'cancelled' | 'leave' | 'makeup' | 'trial';
 
@@ -17,6 +17,14 @@ export interface Course {
 export type BillingType = 'hourly' | 'per_session';
 
 export type SettlementCycle = 'per_session' | 'weekly' | 'monthly' | 'custom';
+
+export type AppSettings = {
+  defaultReminderMinutesBefore: number;
+  defaultSettlementCycle: SettlementCycle;
+  defaultDuration: number;
+  lastExportedAt?: string;
+  updatedAt: string;
+};
 
 export type ScheduleType = 'recurring' | 'one_time';
 

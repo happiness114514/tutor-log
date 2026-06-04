@@ -7,6 +7,7 @@ import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
+import { useAppSettings } from '../store/useAppSettings';
 import { useLessons } from '../store/useLessons';
 import { useSchedules } from '../store/useSchedules';
 import { useStudents, type StudentInput } from '../store/useStudents';
@@ -45,18 +46,20 @@ type StudentFormState = {
 
 type StudentFormErrors = Partial<Record<keyof StudentFormState, string>>;
 
-const emptyForm: StudentFormState = {
-  name: '',
-  grade: '',
-  subject: '',
-  defaultRate: '150',
-  defaultDuration: '2',
-  billingType: 'hourly',
-  settlementCycle: 'monthly',
-  parentContact: '',
-  note: '',
-  isActive: true,
-};
+function createEmptyForm(defaultDuration: number, defaultSettlementCycle: SettlementCycle): StudentFormState {
+  return {
+    name: '',
+    grade: '',
+    subject: '',
+    defaultRate: '150',
+    defaultDuration: String(defaultDuration),
+    billingType: 'hourly',
+    settlementCycle: defaultSettlementCycle,
+    parentContact: '',
+    note: '',
+    isActive: true,
+  };
+}
 
 const billingTypeLabel: Record<BillingType, string> = {
   hourly: '按小时',
@@ -921,6 +924,7 @@ export function Students({
   onNavigateToSchedule = () => undefined,
   onEditingChange = () => undefined,
 }: StudentsProps) {
+  const { settings } = useAppSettings();
   const { students, addStudent, updateStudent, deleteStudent } = useStudents();
   const { lessons, markLessonsSettled, preserveStudentSnapshot: preserveLessonStudentSnapshot } = useLessons();
   const { schedules, preserveStudentSnapshot: preserveScheduleStudentSnapshot } = useSchedules();
@@ -1019,7 +1023,7 @@ export function Students({
           <h1 className="text-xl font-semibold text-neutral-900">{studentFormTitle}</h1>
         </div>
       <StudentForm
-        initialValue={editingStudent ? studentToForm(editingStudent) : emptyForm}
+        initialValue={editingStudent ? studentToForm(editingStudent) : createEmptyForm(settings.defaultDuration, settings.defaultSettlementCycle)}
         onCancel={closeForm}
         onSave={handleSave}
       />

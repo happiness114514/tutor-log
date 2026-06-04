@@ -5,6 +5,7 @@ import { ToastHost } from './components/ToastHost';
 import { Dashboard } from './pages/Dashboard';
 import { Lessons } from './pages/Lessons';
 import { Schedule } from './pages/Schedule';
+import { Settings } from './pages/Settings';
 import { Settlement } from './pages/Settlement';
 import { Statistics } from './pages/Statistics';
 import { Students } from './pages/Students';
@@ -57,6 +58,12 @@ export function App() {
     setActivePage('statistics');
   }
 
+  function openSettings() {
+    setPendingAction(null);
+    setPendingEditLessonId(null);
+    setActivePage('settings');
+  }
+
   function openDashboard() {
     setPendingAction(null);
     setPendingEditLessonId(null);
@@ -70,6 +77,7 @@ export function App() {
         onCreateStudent={openNewStudent}
         onNavigateToSettlement={openSettlement}
         onNavigateToStatistics={openStatistics}
+        onOpenSettings={openSettings}
       />
     ),
     schedule: (
@@ -100,6 +108,7 @@ export function App() {
     ),
     settlement: <Settlement onNavigateToLessons={openNewLesson} />,
     statistics: <Statistics onBack={openDashboard} />,
+    settings: <Settings onBack={openDashboard} />,
   };
 
   return (
@@ -110,7 +119,7 @@ export function App() {
             {pages[activePage]}
           </div>
         }
-        nav={isEditingPage ? null : <BottomNav activePage={activePage} onChange={setActivePage} />}
+        nav={isEditingPage || activePage === 'settings' ? null : <BottomNav activePage={activePage} onChange={setActivePage} />}
       />
       <ToastHost />
     </>

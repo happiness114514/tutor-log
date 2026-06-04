@@ -1,16 +1,13 @@
-import { BarChart3, ChevronRight, PlusCircle, UserPlus, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { BarChart3, ChevronRight, PlusCircle, Settings as SettingsIcon, UserPlus, X } from 'lucide-react';
+import { useState } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
-import { useConfirmDialog } from '../components/ConfirmDialog';
-import { PageHeader } from '../components/PageHeader';
 import { Portal, useBodyScrollLock } from '../components/Portal';
 import { SectionTitle } from '../components/SectionTitle';
 import { useLessons } from '../store/useLessons';
 import { useSchedules } from '../store/useSchedules';
 import { useStudents } from '../store/useStudents';
 import type { Lesson } from '../types';
-import { exportLocalData, importLocalData, parseBackupFile } from '../utils/backup';
 import {
   formatDuration,
   formatMoney,
@@ -28,13 +25,14 @@ import {
   type TodayTodo,
 } from '../utils/scheduleUtils';
 import { getLessonStudentDisplay, getStudentDisplay } from '../utils/studentDisplay';
-import { queueToast, showToast } from '../utils/toast';
+import { showToast } from '../utils/toast';
 
 interface DashboardProps {
   onCreateLesson: () => void;
   onCreateStudent: () => void;
   onNavigateToSettlement: () => void;
   onNavigateToStatistics: () => void;
+  onOpenSettings: () => void;
 }
 
 function todayLabel() {
@@ -208,12 +206,11 @@ export function Dashboard({
   onCreateStudent,
   onNavigateToSettlement,
   onNavigateToStatistics,
+  onOpenSettings,
 }: DashboardProps) {
   const { students } = useStudents();
   const { lessons, addLesson } = useLessons();
   const { schedules } = useSchedules();
-  const { confirm, confirmDialog } = useConfirmDialog();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedTodo, setSelectedTodo] = useState<TodayTodo | null>(null);
   const stats = getDashboardStats(students, lessons);
   const recentLessons = getRecentLessons(lessons);
@@ -227,40 +224,6 @@ export function Dashboard({
     { label: '当前未结算', value: formatMoney(stats.unsettledAmount) },
     { label: '本月课时', value: formatDuration(stats.monthlyDuration) },
   ];
-
-  function handleExport() {
-    exportLocalData();
-    showToast('数据已导出');
-  }
-
-  async function handleImportFile(file?: File) {
-    if (!file) {
-      return;
-    }
-
-    try {
-      const backup = await parseBackupFile(file);
-      const confirmed = await confirm({
-        title: '导入数据',
-        description: '导入数据会覆盖当前本地数据，确定继续吗？',
-        confirmText: '继续导入',
-        tone: 'danger',
-      });
-      if (!confirmed) {
-        return;
-      }
-
-      importLocalData(backup);
-      queueToast('数据导入成功');
-      window.location.reload();
-    } catch {
-      showToast('导入失败，请检查文件格式。', 'error');
-    } finally {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  }
 
   function handleRecordCourse(instance: ScheduleInstance) {
     if (hasGeneratedLesson(instance.schedule.id, instance.date, lessons)) {
@@ -276,8 +239,20 @@ export function Dashboard({
 
   return (
     <div>
-      <PageHeader title="家教课时本" subtitle={`专注记录，清晰管理 · ${todayLabel()}`} />
-      {confirmDialog}
+      <header className="mb-6 flex items-start justify-between gap-3 pt-1">
+        <div>
+          <h1 className="text-[26px] font-semibold tracking-normal text-neutral-900">家教课时本</h1>
+          <p className="mt-2 text-sm leading-6 text-neutral-500">{`专注记录，清晰管理 · ${todayLabel()}`}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="pressable inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 shadow-sm active:bg-neutral-100"
+          aria-label="打开设置"
+        >
+          <SettingsIcon className="h-5 w-5" />
+        </button>
+      </header>
       <CourseDetailDialog todo={selectedTodo} lessons={lessons} onClose={() => setSelectedTodo(null)} onRecord={handleRecordCourse} />
 
       {students.length === 0 ? (
@@ -432,24 +407,6 @@ export function Dashboard({
             })}
           </div>
         )}
-      </Card>
-
-      <SectionTitle>数据管理</SectionTitle>
-      <Card>
-        <p className="text-sm text-slate-600">备份或恢复本机保存的学生、课时记录和课程表数据。</p>
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <ActionButton variant="primary" onClick={handleExport}>
-            导出数据
-          </ActionButton>
-          <ActionButton onClick={() => fileInputRef.current?.click()}>导入数据</ActionButton>
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/json,.json"
-          className="hidden"
-          onChange={(event) => void handleImportFile(event.target.files?.[0])}
-        />
       </Card>
     </div>
   );

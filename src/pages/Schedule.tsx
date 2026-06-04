@@ -8,6 +8,7 @@ import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
 import { SectionTitle } from '../components/SectionTitle';
+import { useAppSettings } from '../store/useAppSettings';
 import { useLessons } from '../store/useLessons';
 import { useSchedules, type ScheduleInput } from '../store/useSchedules';
 import { useStudents } from '../store/useStudents';
@@ -125,9 +126,9 @@ function FieldError({ message }: { message?: string }) {
   return message ? <p className="mt-1 text-xs text-coral">{message}</p> : null;
 }
 
-function getStudentDefaults(students: Student[]) {
+function getStudentDefaults(students: Student[], defaultDuration: number) {
   const firstStudent = students[0];
-  const duration = firstStudent?.defaultDuration ?? 2;
+  const duration = firstStudent?.defaultDuration ?? defaultDuration;
 
   return {
     studentId: firstStudent?.id ?? '',
@@ -139,8 +140,8 @@ function getStudentDefaults(students: Student[]) {
   };
 }
 
-function createEmptyForm(students: Student[], scheduleType: ScheduleType): ScheduleFormState {
-  const defaults = getStudentDefaults(students);
+function createEmptyForm(students: Student[], scheduleType: ScheduleType, defaultDuration: number, defaultReminderMinutesBefore: number): ScheduleFormState {
+  const defaults = getStudentDefaults(students, defaultDuration);
 
   return {
     studentId: defaults.studentId,
@@ -151,7 +152,7 @@ function createEmptyForm(students: Student[], scheduleType: ScheduleType): Sched
     startTime: '19:00',
     endTime: defaults.endTime,
     location: '',
-    reminderMinutesBefore: scheduleType === 'recurring' ? '30' : '',
+    reminderMinutesBefore: String(defaultReminderMinutesBefore),
     postClassReminderEnabled: true,
     defaultDuration: defaults.defaultDuration,
     defaultRate: defaults.defaultRate,
@@ -706,6 +707,7 @@ function RecurringScheduleCard({
 }
 
 export function Schedule({ onCreateStudent, onOpenLessonEditor, onEditingChange = () => undefined }: ScheduleProps) {
+  const { settings } = useAppSettings();
   const { students } = useStudents();
   const { lessons, addLesson } = useLessons();
   const { schedules, addSchedule, updateSchedule, deleteSchedule, updateScheduleStatus } = useSchedules();
@@ -741,7 +743,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor, onEditingChange 
 
   function openCreateForm(scheduleType: ScheduleType) {
     setEditingSchedule(null);
-    setFormState(createEmptyForm(students, scheduleType));
+    setFormState(createEmptyForm(students, scheduleType, settings.defaultDuration, settings.defaultReminderMinutesBefore));
     setNotice('');
     setCreatedLessonId(null);
   }
