@@ -1,8 +1,9 @@
-import { ArrowLeft, BookOpen, ChevronRight, Copy, Edit2, Plus, ReceiptText, Trash2, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, ChevronRight, Copy, Edit2, Plus, ReceiptText, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { AppSelect } from '../components/AppSelect';
+import { BottomSheet } from '../components/BottomSheet';
 import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
@@ -195,12 +196,11 @@ function scheduleDateText(schedule: Schedule) {
 
 interface StudentFormProps {
   initialValue: StudentFormState;
-  title: string;
   onCancel: () => void;
   onSave: (input: StudentInput) => void;
 }
 
-function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps) {
+function StudentForm({ initialValue, onCancel, onSave }: StudentFormProps) {
   const [form, setForm] = useState<StudentFormState>(initialValue);
   const [errors, setErrors] = useState<StudentFormErrors>({});
   const fieldRefs = useRef<
@@ -276,19 +276,7 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
   }
 
   return (
-    <Card className="mb-4">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-ink">{title}</h2>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400"
-            aria-label="关闭表单"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <form onSubmit={handleSubmit} className="space-y-4 pb-2">
 
         <div>
           <FieldLabel required>姓名</FieldLabel>
@@ -420,8 +408,7 @@ function StudentForm({ initialValue, title, onCancel, onSave }: StudentFormProps
             保存学生
           </ActionButton>
         </div>
-      </form>
-    </Card>
+    </form>
   );
 }
 
@@ -939,9 +926,9 @@ export function Students({
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const formContainerRef = useRef<HTMLDivElement>(null);
   const { confirm, confirmDialog } = useConfirmDialog();
   const selectedStudent = selectedStudentId ? students.find((student) => student.id === selectedStudentId) : undefined;
+  const studentFormTitle = editingStudent ? '编辑学生' : '新增学生';
 
   function openCreateForm() {
     setSelectedStudentId(null);
@@ -961,16 +948,6 @@ export function Students({
       setSelectedStudentId(null);
     }
   }, [selectedStudentId, selectedStudent]);
-
-  useEffect(() => {
-    if (!isFormOpen) {
-      return;
-    }
-
-    formContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    const firstField = formContainerRef.current?.querySelector<HTMLElement>('[data-form-autofocus="true"]');
-    firstField?.focus({ preventScroll: true });
-  }, [isFormOpen, editingStudent?.id]);
 
   function openEditForm(student: Student) {
     setEditingStudent(student);
@@ -1021,18 +998,32 @@ export function Students({
     }
   }
 
-  if (selectedStudent && !isFormOpen) {
-    return (
-      <StudentDetail
-        student={selectedStudent}
-        lessons={lessons}
-        schedules={schedules}
-        onBack={() => setSelectedStudentId(null)}
-        onEdit={openEditForm}
-        onCreateLesson={onCreateLesson}
-        onNavigateToSchedule={onNavigateToSchedule}
-        onSettleLessons={markLessonsSettled}
+  const studentFormSheet = (
+    <BottomSheet open={isFormOpen} title={studentFormTitle} onClose={closeForm}>
+      <StudentForm
+        initialValue={editingStudent ? studentToForm(editingStudent) : emptyForm}
+        onCancel={closeForm}
+        onSave={handleSave}
       />
+    </BottomSheet>
+  );
+
+  if (selectedStudent) {
+    return (
+      <div>
+        {confirmDialog}
+        <StudentDetail
+          student={selectedStudent}
+          lessons={lessons}
+          schedules={schedules}
+          onBack={() => setSelectedStudentId(null)}
+          onEdit={openEditForm}
+          onCreateLesson={onCreateLesson}
+          onNavigateToSchedule={onNavigateToSchedule}
+          onSettleLessons={markLessonsSettled}
+        />
+        {studentFormSheet}
+      </div>
     );
   }
 
@@ -1041,21 +1032,12 @@ export function Students({
       <PageHeader title="学生" subtitle="管理学生资料、默认收费和结算偏好" />
       {confirmDialog}
 
-      {isFormOpen ? (
-        <div ref={formContainerRef} className="scroll-mt-4 scroll-mb-28">
-          <StudentForm
-            title={editingStudent ? '编辑学生' : '新增学生'}
-            initialValue={editingStudent ? studentToForm(editingStudent) : emptyForm}
-            onCancel={closeForm}
-            onSave={handleSave}
-          />
-        </div>
-      ) : (
-        <ActionButton variant="primary" className="mb-4 inline-flex w-full items-center justify-center gap-2" onClick={openCreateForm}>
-          <Plus className="h-4 w-4" />
-          新增学生
-        </ActionButton>
-      )}
+      <ActionButton variant="primary" className="mb-4 inline-flex w-full items-center justify-center gap-2" onClick={openCreateForm}>
+        <Plus className="h-4 w-4" />
+        新增学生
+      </ActionButton>
+
+      {studentFormSheet}
 
       {students.length === 0 ? (
         <Card className="py-10 text-center">

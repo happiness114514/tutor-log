@@ -1,9 +1,10 @@
-import { ChevronDown, ChevronUp, Edit2, Plus, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit2, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { AppDateInput, AppTimeInput } from '../components/AppDateTimePicker';
 import { AppSelect } from '../components/AppSelect';
+import { BottomSheet } from '../components/BottomSheet';
 import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
@@ -428,14 +429,13 @@ function settlementBadgeClass(isSettled: boolean) {
 interface LessonFormProps {
   initialValue: LessonFormState;
   students: Student[];
-  title: string;
   defaultMoreOpen: boolean;
   isEditing: boolean;
   onCancel: () => void;
   onSave: (input: LessonInput) => void;
 }
 
-function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing, onCancel, onSave }: LessonFormProps) {
+function LessonForm({ initialValue, students, defaultMoreOpen, isEditing, onCancel, onSave }: LessonFormProps) {
   const [form, setForm] = useState<LessonFormState>(() => (isEditing ? initialValue : withQuickComputed(initialValue)));
   const [errors, setErrors] = useState<LessonFormErrors>({});
   const [isMoreOpen, setIsMoreOpen] = useState(defaultMoreOpen);
@@ -614,22 +614,8 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
   }
 
   return (
-    <Card className="mb-4">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold text-ink">{title}</h2>
-            <p className="mt-1 text-xs text-slate-500">快速记录一节课，默认只填核心信息。</p>
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400"
-            aria-label="关闭表单"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <form onSubmit={handleSubmit} className="space-y-4 pb-2">
+      <p className="text-xs leading-5 text-slate-500">快速记录一节课，默认只填核心信息。</p>
 
         <div>
           <FieldLabel required>学生</FieldLabel>
@@ -925,8 +911,7 @@ function LessonForm({ initialValue, students, title, defaultMoreOpen, isEditing,
             保存课时
           </ActionButton>
         </div>
-      </form>
-    </Card>
+    </form>
   );
 }
 
@@ -1016,7 +1001,6 @@ export function Lessons({
   const { lessons, addLesson, updateLesson, deleteLesson } = useLessons();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
-  const formContainerRef = useRef<HTMLDivElement>(null);
   const { confirm, confirmDialog } = useConfirmDialog();
 
   const studentMap = useMemo(() => new Map(students.map((student) => [student.id, student])), [students]);
@@ -1044,16 +1028,6 @@ export function Lessons({
       onEditRequestConsumed?.();
     }
   }, [openEditLessonId, lessons, onEditRequestConsumed]);
-
-  useEffect(() => {
-    if (!isFormOpen) {
-      return;
-    }
-
-    formContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    const firstField = formContainerRef.current?.querySelector<HTMLElement>('[data-form-autofocus="true"]');
-    firstField?.focus({ preventScroll: true });
-  }, [isFormOpen, editingLesson?.id]);
 
   function openEditForm(lesson: Lesson) {
     setEditingLesson(lesson);
@@ -1101,23 +1075,23 @@ export function Lessons({
   }
 
   const canCreateLesson = students.length > 0;
+  const lessonFormTitle = editingLesson ? '编辑课时' : '新增课时';
 
   return (
     <div>
       <PageHeader title="课时记录" />
       {confirmDialog}
 
-      {canCreateLesson && !isFormOpen ? (
+      {canCreateLesson ? (
         <ActionButton variant="primary" className="mb-4 inline-flex w-full items-center justify-center gap-2" onClick={openCreateForm}>
           <Plus className="h-4 w-4" />
           新增课时
         </ActionButton>
       ) : null}
 
-      {isFormOpen ? (
-        <div ref={formContainerRef} className="scroll-mt-4 scroll-mb-28">
+      <BottomSheet open={isFormOpen} title={lessonFormTitle} onClose={closeForm}>
+        {isFormOpen ? (
           <LessonForm
-            title={editingLesson ? '编辑课时' : '新增课时'}
             initialValue={editingLesson ? lessonToForm(editingLesson) : emptyForm(students)}
             students={students}
             defaultMoreOpen={shouldOpenMoreSettings(editingLesson)}
@@ -1125,8 +1099,8 @@ export function Lessons({
             onCancel={closeForm}
             onSave={handleSave}
           />
-        </div>
-      ) : null}
+        ) : null}
+      </BottomSheet>
 
       {lessons.length === 0 && students.length === 0 ? (
         <Card className="py-10 text-center">

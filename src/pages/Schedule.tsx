@@ -1,9 +1,10 @@
-import { Edit2, Pause, Play, Plus, Trash2, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Edit2, Pause, Play, Plus, Trash2 } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { AppDateInput, AppTimeInput } from '../components/AppDateTimePicker';
 import { AppSelect } from '../components/AppSelect';
+import { BottomSheet } from '../components/BottomSheet';
 import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
@@ -230,13 +231,11 @@ function statusClassName(status: ScheduleInstance['status']) {
 function ScheduleForm({
   students,
   initialValue,
-  editingSchedule,
   onCancel,
   onSave,
 }: {
   students: Student[];
   initialValue: ScheduleFormState;
-  editingSchedule: ScheduleModel | null;
   onCancel: () => void;
   onSave: (input: ScheduleInput) => void;
 }) {
@@ -368,24 +367,8 @@ function ScheduleForm({
   const isRecurring = form.scheduleType === 'recurring';
 
   return (
-    <Card className="mb-4">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold text-ink">
-              {editingSchedule ? '编辑课程' : isRecurring ? '新增固定课程' : '新增临时课程'}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">计划课程不会计入收入，记录课时后才会结算。</p>
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-400"
-            aria-label="关闭表单"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <form onSubmit={handleSubmit} className="space-y-4 pb-2">
+      <p className="text-xs leading-5 text-slate-500">计划课程不会计入收入，记录课时后才会结算。</p>
 
         <div>
           <FieldLabel required>学生</FieldLabel>
@@ -563,8 +546,7 @@ function ScheduleForm({
             保存课程
           </ActionButton>
         </div>
-      </form>
-    </Card>
+    </form>
   );
 }
 
@@ -709,7 +691,6 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
   const [editingSchedule, setEditingSchedule] = useState<ScheduleModel | null>(null);
   const [notice, setNotice] = useState('');
   const [createdLessonId, setCreatedLessonId] = useState<string | null>(null);
-  const formContainerRef = useRef<HTMLDivElement>(null);
   const { confirm, confirmDialog } = useConfirmDialog();
 
   const studentMap = useMemo(() => new Map(students.map((student) => [student.id, student])), [students]);
@@ -724,16 +705,11 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
   const weekGroups = useMemo(() => groupScheduleInstancesByDate(weekInstances), [weekInstances]);
   const recurringSchedules = schedules.filter((schedule) => schedule.scheduleType === 'recurring');
   const hasSchedules = schedules.length > 0;
-
-  useEffect(() => {
-    if (!formState) {
-      return;
-    }
-
-    formContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    const firstField = formContainerRef.current?.querySelector<HTMLElement>('[data-form-autofocus="true"]');
-    firstField?.focus({ preventScroll: true });
-  }, [formState?.scheduleType, editingSchedule?.id]);
+  const scheduleFormTitle = editingSchedule
+    ? '编辑课程'
+    : formState?.scheduleType === 'recurring'
+      ? '新增固定课程'
+      : '新增临时课程';
 
   function openCreateForm(scheduleType: ScheduleType) {
     setEditingSchedule(null);
@@ -867,7 +843,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
         ))}
       </div>
 
-      {!formState && students.length > 0 ? (
+      {students.length > 0 ? (
         <div className="mb-4 grid grid-cols-2 gap-3">
           <ActionButton variant="primary" className="inline-flex items-center justify-center gap-2" onClick={() => openCreateForm('recurring')}>
             <Plus className="h-4 w-4" />
@@ -878,18 +854,19 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
             新增临时课程
           </ActionButton>
         </div>
-      ) : formState ? (
-        <div ref={formContainerRef} className="scroll-mt-4 scroll-mb-28">
+      ) : null}
+
+      <BottomSheet open={Boolean(formState)} title={scheduleFormTitle} onClose={closeForm}>
+        {formState ? (
           <ScheduleForm
             key={editingSchedule?.id ?? formState.scheduleType}
             students={students}
             initialValue={formState}
-            editingSchedule={editingSchedule}
             onCancel={closeForm}
             onSave={handleSave}
           />
-        </div>
-      ) : null}
+        ) : null}
+      </BottomSheet>
 
       {notice ? (
         <Card className="mb-4 border-neutral-200 bg-neutral-50">
