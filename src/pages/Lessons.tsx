@@ -1,10 +1,9 @@
-import { ChevronDown, ChevronUp, Edit2, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Edit2, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { AppDateInput, AppTimeInput } from '../components/AppDateTimePicker';
 import { AppSelect } from '../components/AppSelect';
-import { BottomSheet } from '../components/BottomSheet';
 import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
@@ -80,6 +79,7 @@ interface LessonsProps {
   onCreateRequestConsumed?: () => void;
   openEditLessonId?: string | null;
   onEditRequestConsumed?: () => void;
+  onEditingChange?: (isEditing: boolean) => void;
 }
 
 function todayString() {
@@ -905,7 +905,7 @@ function LessonForm({ initialValue, students, defaultMoreOpen, isEditing, onCanc
           </div>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="sticky bottom-0 z-10 -mx-1 grid grid-cols-2 gap-3 border-t border-neutral-100 bg-paper/95 py-4 backdrop-blur">
           <ActionButton onClick={onCancel}>取消</ActionButton>
           <ActionButton variant="primary" type="submit">
             保存课时
@@ -996,6 +996,7 @@ export function Lessons({
   onCreateRequestConsumed,
   openEditLessonId = null,
   onEditRequestConsumed,
+  onEditingChange = () => undefined,
 }: LessonsProps) {
   const { students } = useStudents();
   const { lessons, addLesson, updateLesson, deleteLesson } = useLessons();
@@ -1016,6 +1017,11 @@ export function Lessons({
       onCreateRequestConsumed?.();
     }
   }, [openCreateRequest, onCreateRequestConsumed]);
+
+  useEffect(() => {
+    onEditingChange(isFormOpen);
+    return () => onEditingChange(false);
+  }, [isFormOpen, onEditingChange]);
 
   useEffect(() => {
     if (!openEditLessonId) {
@@ -1077,6 +1083,32 @@ export function Lessons({
   const canCreateLesson = students.length > 0;
   const lessonFormTitle = editingLesson ? '编辑课时' : '新增课时';
 
+  if (isFormOpen) {
+    return (
+      <div className="-mx-4 -mt-6 min-h-screen bg-paper px-4 pt-6">
+        <div className="mb-5 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={closeForm}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 shadow-sm"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            返回
+          </button>
+          <h1 className="text-xl font-semibold text-neutral-900">{lessonFormTitle}</h1>
+        </div>
+        <LessonForm
+          initialValue={editingLesson ? lessonToForm(editingLesson) : emptyForm(students)}
+          students={students}
+          defaultMoreOpen={shouldOpenMoreSettings(editingLesson)}
+          isEditing={Boolean(editingLesson)}
+          onCancel={closeForm}
+          onSave={handleSave}
+        />
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader title="课时记录" />
@@ -1088,19 +1120,6 @@ export function Lessons({
           新增课时
         </ActionButton>
       ) : null}
-
-      <BottomSheet open={isFormOpen} title={lessonFormTitle} onClose={closeForm}>
-        {isFormOpen ? (
-          <LessonForm
-            initialValue={editingLesson ? lessonToForm(editingLesson) : emptyForm(students)}
-            students={students}
-            defaultMoreOpen={shouldOpenMoreSettings(editingLesson)}
-            isEditing={Boolean(editingLesson)}
-            onCancel={closeForm}
-            onSave={handleSave}
-          />
-        ) : null}
-      </BottomSheet>
 
       {lessons.length === 0 && students.length === 0 ? (
         <Card className="py-10 text-center">

@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { AppSelect } from '../components/AppSelect';
-import { BottomSheet } from '../components/BottomSheet';
 import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
@@ -402,7 +401,7 @@ function StudentForm({ initialValue, onCancel, onSave }: StudentFormProps) {
           是否活跃
         </label>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="sticky bottom-0 z-10 -mx-1 grid grid-cols-2 gap-3 border-t border-neutral-100 bg-paper/95 py-4 backdrop-blur">
           <ActionButton onClick={onCancel}>取消</ActionButton>
           <ActionButton variant="primary" type="submit">
             保存学生
@@ -912,6 +911,7 @@ interface StudentsProps {
   onCreateRequestConsumed?: () => void;
   onCreateLesson?: () => void;
   onNavigateToSchedule?: () => void;
+  onEditingChange?: (isEditing: boolean) => void;
 }
 
 export function Students({
@@ -919,6 +919,7 @@ export function Students({
   onCreateRequestConsumed,
   onCreateLesson = () => undefined,
   onNavigateToSchedule = () => undefined,
+  onEditingChange = () => undefined,
 }: StudentsProps) {
   const { students, addStudent, updateStudent, deleteStudent } = useStudents();
   const { lessons, markLessonsSettled, preserveStudentSnapshot: preserveLessonStudentSnapshot } = useLessons();
@@ -942,6 +943,11 @@ export function Students({
       onCreateRequestConsumed?.();
     }
   }, [openCreateRequest, onCreateRequestConsumed]);
+
+  useEffect(() => {
+    onEditingChange(isFormOpen);
+    return () => onEditingChange(false);
+  }, [isFormOpen, onEditingChange]);
 
   useEffect(() => {
     if (selectedStudentId && !selectedStudent) {
@@ -998,15 +1004,28 @@ export function Students({
     }
   }
 
-  const studentFormSheet = (
-    <BottomSheet open={isFormOpen} title={studentFormTitle} onClose={closeForm}>
+  if (isFormOpen) {
+    return (
+      <div className="-mx-4 -mt-6 min-h-screen bg-paper px-4 pt-6">
+        <div className="mb-5 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={closeForm}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 shadow-sm"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            返回
+          </button>
+          <h1 className="text-xl font-semibold text-neutral-900">{studentFormTitle}</h1>
+        </div>
       <StudentForm
         initialValue={editingStudent ? studentToForm(editingStudent) : emptyForm}
         onCancel={closeForm}
         onSave={handleSave}
       />
-    </BottomSheet>
-  );
+      </div>
+    );
+  }
 
   if (selectedStudent) {
     return (
@@ -1022,7 +1041,6 @@ export function Students({
           onNavigateToSchedule={onNavigateToSchedule}
           onSettleLessons={markLessonsSettled}
         />
-        {studentFormSheet}
       </div>
     );
   }
@@ -1036,8 +1054,6 @@ export function Students({
         <Plus className="h-4 w-4" />
         新增学生
       </ActionButton>
-
-      {studentFormSheet}
 
       {students.length === 0 ? (
         <Card className="py-10 text-center">

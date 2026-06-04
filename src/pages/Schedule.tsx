@@ -1,10 +1,9 @@
-import { Edit2, Pause, Play, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Edit2, Pause, Play, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { AppDateInput, AppTimeInput } from '../components/AppDateTimePicker';
 import { AppSelect } from '../components/AppSelect';
-import { BottomSheet } from '../components/BottomSheet';
 import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
@@ -57,6 +56,7 @@ type ScheduleFormErrors = Partial<Record<keyof ScheduleFormState, string>>;
 interface ScheduleProps {
   onCreateStudent: () => void;
   onOpenLessonEditor: (lessonId: string) => void;
+  onEditingChange?: (isEditing: boolean) => void;
 }
 
 const viewTabs: { id: ScheduleView; label: string }[] = [
@@ -540,7 +540,7 @@ function ScheduleForm({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="sticky bottom-0 z-10 -mx-1 grid grid-cols-2 gap-3 border-t border-neutral-100 bg-paper/95 py-4 backdrop-blur">
           <ActionButton onClick={onCancel}>取消</ActionButton>
           <ActionButton variant="primary" type="submit">
             保存课程
@@ -682,7 +682,7 @@ function RecurringScheduleCard({
   );
 }
 
-export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps) {
+export function Schedule({ onCreateStudent, onOpenLessonEditor, onEditingChange = () => undefined }: ScheduleProps) {
   const { students } = useStudents();
   const { lessons, addLesson } = useLessons();
   const { schedules, addSchedule, updateSchedule, deleteSchedule, updateScheduleStatus } = useSchedules();
@@ -710,6 +710,11 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
     : formState?.scheduleType === 'recurring'
       ? '新增固定课程'
       : '新增临时课程';
+
+  useEffect(() => {
+    onEditingChange(Boolean(formState));
+    return () => onEditingChange(false);
+  }, [formState, onEditingChange]);
 
   function openCreateForm(scheduleType: ScheduleType) {
     setEditingSchedule(null);
@@ -786,6 +791,31 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
     showToast('课时已记录');
   }
 
+  if (formState) {
+    return (
+      <div className="-mx-4 -mt-6 min-h-screen bg-paper px-4 pt-6">
+        <div className="mb-5 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={closeForm}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 shadow-sm"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            返回
+          </button>
+          <h1 className="text-xl font-semibold text-neutral-900">{scheduleFormTitle}</h1>
+        </div>
+        <ScheduleForm
+          key={editingSchedule?.id ?? formState.scheduleType}
+          students={students}
+          initialValue={formState}
+          onCancel={closeForm}
+          onSave={handleSave}
+        />
+      </div>
+    );
+  }
+
   function renderInstanceList(instances: ScheduleInstance[], emptyText: string) {
     if (instances.length === 0) {
       return (
@@ -855,18 +885,6 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor }: ScheduleProps)
           </ActionButton>
         </div>
       ) : null}
-
-      <BottomSheet open={Boolean(formState)} title={scheduleFormTitle} onClose={closeForm}>
-        {formState ? (
-          <ScheduleForm
-            key={editingSchedule?.id ?? formState.scheduleType}
-            students={students}
-            initialValue={formState}
-            onCancel={closeForm}
-            onSave={handleSave}
-          />
-        ) : null}
-      </BottomSheet>
 
       {notice ? (
         <Card className="mb-4 border-neutral-200 bg-neutral-50">

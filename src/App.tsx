@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BottomNav } from './components/BottomNav';
 import { AppShell } from './components/AppShell';
 import { ToastHost } from './components/ToastHost';
@@ -16,6 +16,11 @@ export function App() {
   const [activePage, setActivePage] = useActivePage();
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [pendingEditLessonId, setPendingEditLessonId] = useState<string | null>(null);
+  const [isEditingPage, setIsEditingPage] = useState(false);
+
+  useEffect(() => {
+    setIsEditingPage(false);
+  }, [activePage]);
 
   function openNewLesson() {
     setPendingAction('openNewLesson');
@@ -67,7 +72,13 @@ export function App() {
         onNavigateToStatistics={openStatistics}
       />
     ),
-    schedule: <Schedule onCreateStudent={openNewStudent} onOpenLessonEditor={openLessonEditor} />,
+    schedule: (
+      <Schedule
+        onCreateStudent={openNewStudent}
+        onOpenLessonEditor={openLessonEditor}
+        onEditingChange={setIsEditingPage}
+      />
+    ),
     lessons: (
       <Lessons
         onNavigateToStudents={openNewStudent}
@@ -75,6 +86,7 @@ export function App() {
         onCreateRequestConsumed={() => setPendingAction(null)}
         openEditLessonId={pendingEditLessonId}
         onEditRequestConsumed={() => setPendingEditLessonId(null)}
+        onEditingChange={setIsEditingPage}
       />
     ),
     students: (
@@ -83,6 +95,7 @@ export function App() {
         onCreateRequestConsumed={() => setPendingAction(null)}
         onCreateLesson={openNewLesson}
         onNavigateToSchedule={openSchedulePage}
+        onEditingChange={setIsEditingPage}
       />
     ),
     settlement: <Settlement onNavigateToLessons={openNewLesson} />,
@@ -97,7 +110,7 @@ export function App() {
             {pages[activePage]}
           </div>
         }
-        nav={<BottomNav activePage={activePage} onChange={setActivePage} />}
+        nav={isEditingPage ? null : <BottomNav activePage={activePage} onChange={setActivePage} />}
       />
       <ToastHost />
     </>
