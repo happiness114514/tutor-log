@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Portal, useBodyScrollLock } from './Portal';
 
 type ConfirmTone = 'default' | 'danger';
@@ -22,38 +22,68 @@ function ConfirmDialog({
   request: ConfirmRequest | null;
   onResolve: (confirmed: boolean) => void;
 }) {
-  useBodyScrollLock(Boolean(request));
+  const [displayRequest, setDisplayRequest] = useState<ConfirmRequest | null>(request);
+  const [isLeaving, setIsLeaving] = useState(false);
+  useBodyScrollLock(Boolean(displayRequest));
 
-  if (!request) {
+  useEffect(() => {
+    if (request) {
+      setDisplayRequest(request);
+      setIsLeaving(false);
+      return;
+    }
+
+    if (!displayRequest) {
+      return;
+    }
+
+    setIsLeaving(true);
+    const timer = window.setTimeout(() => {
+      setDisplayRequest(null);
+      setIsLeaving(false);
+    }, 180);
+
+    return () => window.clearTimeout(timer);
+  }, [displayRequest, request]);
+
+  if (!displayRequest) {
     return null;
   }
 
   const confirmClass =
-    request.tone === 'danger'
+    displayRequest.tone === 'danger'
       ? 'border-rose-200 bg-rose-50 text-rose-700 active:bg-rose-100'
       : 'border-neutral-800 bg-neutral-800 text-white active:bg-neutral-700';
 
   return (
     <Portal>
-      <div className="dialog-backdrop fixed inset-0 z-[70] flex items-center justify-center bg-neutral-950/25 px-4 backdrop-blur-[2px]">
+      <div
+        className={`fixed inset-0 z-[70] flex items-center justify-center bg-neutral-950/25 px-4 backdrop-blur-[2px] ${
+          isLeaving ? 'dialog-backdrop-out' : 'dialog-backdrop'
+        }`}
+      >
         <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={() => onResolve(false)} aria-label="关闭弹窗" />
-        <section className="dialog-panel relative w-full max-w-sm rounded-3xl border border-neutral-200 bg-white p-5 shadow-2xl">
-          <h2 className="text-lg font-semibold text-neutral-950">{request.title}</h2>
-          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-neutral-600">{request.description}</p>
+        <section
+          className={`relative w-full max-w-sm rounded-3xl border border-neutral-200 bg-white p-5 shadow-2xl ${
+            isLeaving ? 'dialog-panel-out' : 'dialog-panel'
+          }`}
+        >
+          <h2 className="text-lg font-semibold text-neutral-950">{displayRequest.title}</h2>
+          <p className="mt-3 whitespace-pre-line text-sm leading-6 text-neutral-600">{displayRequest.description}</p>
           <div className="mt-5 grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => onResolve(false)}
-              className="h-11 rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 transition active:bg-neutral-100"
+              className="pressable h-11 rounded-2xl border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 active:bg-neutral-100"
             >
-              {request.cancelText}
+              {displayRequest.cancelText}
             </button>
             <button
               type="button"
               onClick={() => onResolve(true)}
-              className={`h-11 rounded-2xl border px-3 text-sm font-medium transition ${confirmClass}`}
+              className={`pressable h-11 rounded-2xl border px-3 text-sm font-medium ${confirmClass}`}
             >
-              {request.confirmText}
+              {displayRequest.confirmText}
             </button>
           </div>
         </section>

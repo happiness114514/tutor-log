@@ -14,7 +14,7 @@ export function ActionButton({ children, variant = 'secondary', className = '', 
   return (
     <button
       type="button"
-      className={`h-10 rounded-xl border px-3 text-sm font-medium transition ${styles} ${className}`}
+      className={`pressable h-10 rounded-xl border px-3 text-sm font-medium ${styles} ${className}`}
       {...props}
     >
       {children}

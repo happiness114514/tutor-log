@@ -37,12 +37,26 @@ export const AppSelect = forwardRef<HTMLButtonElement, AppSelectProps<string>>(f
   ref,
 ) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   useBodyScrollLock(isOpen);
   const selectedOption = useMemo(() => options.find((option) => option.value === value), [options, value]);
 
+  function openSheet() {
+    setIsOpen(true);
+    setIsClosing(false);
+  }
+
+  function closeSheet() {
+    setIsClosing(true);
+    window.setTimeout(() => {
+      setIsOpen(false);
+      setIsClosing(false);
+    }, 180);
+  }
+
   function handleSelect(nextValue: string) {
     onChange(nextValue);
-    setIsOpen(false);
+    closeSheet();
   }
 
   return (
@@ -51,8 +65,8 @@ export const AppSelect = forwardRef<HTMLButtonElement, AppSelectProps<string>>(f
         ref={ref}
         type="button"
         disabled={disabled}
-        onClick={() => setIsOpen(true)}
-        className={`flex h-11 w-full items-center justify-between gap-3 rounded-md border bg-white px-3 text-left text-sm text-ink outline-none transition focus:ring-2 disabled:bg-neutral-100 disabled:text-neutral-400 ${
+        onClick={openSheet}
+        className={`pressable flex h-11 w-full items-center justify-between gap-3 rounded-md border bg-white px-3 text-left text-sm text-ink outline-none focus:ring-2 disabled:bg-neutral-100 disabled:text-neutral-400 ${
           hasError
             ? 'border-coral focus:border-coral focus:ring-coral/15'
             : 'border-line focus:border-mint focus:ring-mint/15'
@@ -66,15 +80,19 @@ export const AppSelect = forwardRef<HTMLButtonElement, AppSelectProps<string>>(f
 
       {isOpen ? (
         <Portal>
-          <div className="dialog-backdrop fixed inset-0 z-[70] flex items-end justify-center bg-neutral-950/25 px-3 pb-3 backdrop-blur-[2px]">
-            <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={() => setIsOpen(false)} aria-label="关闭选择器" />
-            <section className="sheet-panel relative w-full max-w-[430px] rounded-3xl border border-neutral-200 bg-white p-4 shadow-2xl">
+          <div
+            className={`fixed inset-0 z-[70] flex items-end justify-center bg-neutral-950/25 px-3 pb-3 backdrop-blur-[2px] ${
+              isClosing ? 'dialog-backdrop-out' : 'dialog-backdrop'
+            }`}
+          >
+            <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={closeSheet} aria-label="关闭选择器" />
+            <section className={`relative w-full max-w-[430px] rounded-3xl border border-neutral-200 bg-white p-4 shadow-2xl ${isClosing ? 'sheet-panel-out' : 'sheet-panel'}`}>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="text-base font-semibold text-neutral-950">{title}</h2>
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-500"
+                  onClick={closeSheet}
+                  className="pressable inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-500"
                   aria-label="关闭"
                 >
                   <X className="h-4 w-4" />
@@ -90,7 +108,7 @@ export const AppSelect = forwardRef<HTMLButtonElement, AppSelectProps<string>>(f
                       key={option.value}
                       type="button"
                       onClick={() => handleSelect(option.value)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-3 text-left transition ${
+                      className={`pressable flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-3 text-left ${
                         active ? 'bg-neutral-100 text-neutral-950' : 'text-neutral-700 active:bg-neutral-50'
                       }`}
                     >
@@ -106,8 +124,8 @@ export const AppSelect = forwardRef<HTMLButtonElement, AppSelectProps<string>>(f
 
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
-                className="mt-3 h-11 w-full rounded-2xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 active:bg-neutral-100"
+                onClick={closeSheet}
+                className="pressable mt-3 h-11 w-full rounded-2xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 active:bg-neutral-100"
               >
                 取消
               </button>
@@ -118,3 +136,4 @@ export const AppSelect = forwardRef<HTMLButtonElement, AppSelectProps<string>>(f
     </>
   );
 });
+

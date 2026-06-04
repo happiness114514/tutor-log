@@ -793,7 +793,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor, onEditingChange 
 
   if (formState) {
     return (
-      <div className="-mx-4 -mt-6 min-h-screen bg-paper px-4 pt-6">
+      <div className="edit-page-transition -mx-4 -mt-6 min-h-screen bg-paper px-4 pt-6">
         <div className="mb-5 flex items-center gap-3">
           <button
             type="button"

@@ -79,7 +79,7 @@ function parseTimeParts(value: string) {
 }
 
 function fieldClassName(hasError = false) {
-  return `flex h-11 w-full items-center justify-between gap-3 rounded-md border bg-white px-3 text-left text-sm text-ink outline-none transition focus:ring-2 ${
+  return `pressable flex h-11 w-full items-center justify-between gap-3 rounded-md border bg-white px-3 text-left text-sm text-ink outline-none focus:ring-2 ${
     hasError ? 'border-coral focus:border-coral focus:ring-coral/15' : 'border-line focus:border-mint focus:ring-mint/15'
   }`;
 }
@@ -89,6 +89,7 @@ export const AppDateInput = forwardRef<HTMLButtonElement, PickerButtonProps>(fun
   ref,
 ) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [parts, setParts] = useState(() => parseDateParts(value));
   const previewValue = useMemo(() => createDateValue(parts.year, parts.month, parts.day), [parts]);
 
@@ -104,27 +105,44 @@ export const AppDateInput = forwardRef<HTMLButtonElement, PickerButtonProps>(fun
     setParts(parseDateParts(nextValue));
   }
 
+  function openSheet() {
+    setIsOpen(true);
+    setIsClosing(false);
+  }
+
+  function closeSheet() {
+    setIsClosing(true);
+    window.setTimeout(() => {
+      setIsOpen(false);
+      setIsClosing(false);
+    }, 180);
+  }
+
   function confirmDate() {
     if (!previewValue) {
       return;
     }
 
     onChange(previewValue);
-    setIsOpen(false);
+    closeSheet();
   }
 
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setIsOpen(true)} className={fieldClassName(hasError)} {...props}>
+      <button ref={ref} type="button" onClick={openSheet} className={fieldClassName(hasError)} {...props}>
         <span className={value ? 'text-ink' : 'text-slate-400'}>{value ? formatDateLabel(value) : placeholder}</span>
         <CalendarDays className="h-4 w-4 shrink-0 text-neutral-400" />
       </button>
 
       {isOpen ? (
         <Portal>
-          <div className="dialog-backdrop fixed inset-0 z-[70] flex items-end justify-center bg-neutral-950/25 px-3 pb-3 backdrop-blur-[2px]">
-            <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={() => setIsOpen(false)} aria-label="关闭日期选择器" />
-            <section className="sheet-panel relative w-full max-w-[430px] rounded-3xl border border-neutral-200 bg-white p-4 shadow-2xl">
+          <div
+            className={`fixed inset-0 z-[70] flex items-end justify-center bg-neutral-950/25 px-3 pb-3 backdrop-blur-[2px] ${
+              isClosing ? 'dialog-backdrop-out' : 'dialog-backdrop'
+            }`}
+          >
+            <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={closeSheet} aria-label="关闭日期选择器" />
+            <section className={`relative w-full max-w-[430px] rounded-3xl border border-neutral-200 bg-white p-4 shadow-2xl ${isClosing ? 'sheet-panel-out' : 'sheet-panel'}`}>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold text-neutral-950">{title}</h2>
@@ -132,8 +150,8 @@ export const AppDateInput = forwardRef<HTMLButtonElement, PickerButtonProps>(fun
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-500"
+                  onClick={closeSheet}
+                  className="pressable inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-500"
                   aria-label="关闭"
                 >
                   <X className="h-4 w-4" />
@@ -198,15 +216,15 @@ export const AppDateInput = forwardRef<HTMLButtonElement, PickerButtonProps>(fun
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="h-11 rounded-2xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 active:bg-neutral-100"
+                  onClick={closeSheet}
+                  className="pressable h-11 rounded-2xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 active:bg-neutral-100"
                 >
                   取消
                 </button>
                 <button
                   type="button"
                   onClick={confirmDate}
-                  className="h-11 rounded-2xl border border-neutral-800 bg-neutral-800 text-sm font-medium text-white active:bg-neutral-700"
+                  className="pressable h-11 rounded-2xl border border-neutral-800 bg-neutral-800 text-sm font-medium text-white active:bg-neutral-700"
                 >
                   确认
                 </button>
@@ -224,6 +242,7 @@ export const AppTimeInput = forwardRef<HTMLButtonElement, PickerButtonProps>(fun
   ref,
 ) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [draft, setDraft] = useState(() => parseTimeParts(value));
   const draftValue = `${draft.hour}:${draft.minute}`;
 
@@ -239,23 +258,40 @@ export const AppTimeInput = forwardRef<HTMLButtonElement, PickerButtonProps>(fun
     setDraft(parseTimeParts(nextValue));
   }
 
+  function openSheet() {
+    setIsOpen(true);
+    setIsClosing(false);
+  }
+
+  function closeSheet() {
+    setIsClosing(true);
+    window.setTimeout(() => {
+      setIsOpen(false);
+      setIsClosing(false);
+    }, 180);
+  }
+
   function confirmTime() {
     onChange(draftValue);
-    setIsOpen(false);
+    closeSheet();
   }
 
   return (
     <>
-      <button ref={ref} type="button" onClick={() => setIsOpen(true)} className={fieldClassName(hasError)} {...props}>
+      <button ref={ref} type="button" onClick={openSheet} className={fieldClassName(hasError)} {...props}>
         <span className={value ? 'text-ink' : 'text-slate-400'}>{value || placeholder}</span>
         <Clock className="h-4 w-4 shrink-0 text-neutral-400" />
       </button>
 
       {isOpen ? (
         <Portal>
-          <div className="dialog-backdrop fixed inset-0 z-[70] flex items-end justify-center bg-neutral-950/25 px-3 pb-3 backdrop-blur-[2px]">
-            <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={() => setIsOpen(false)} aria-label="关闭时间选择器" />
-            <section className="sheet-panel relative w-full max-w-[430px] rounded-3xl border border-neutral-200 bg-white p-4 shadow-2xl">
+          <div
+            className={`fixed inset-0 z-[70] flex items-end justify-center bg-neutral-950/25 px-3 pb-3 backdrop-blur-[2px] ${
+              isClosing ? 'dialog-backdrop-out' : 'dialog-backdrop'
+            }`}
+          >
+            <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={closeSheet} aria-label="关闭时间选择器" />
+            <section className={`relative w-full max-w-[430px] rounded-3xl border border-neutral-200 bg-white p-4 shadow-2xl ${isClosing ? 'sheet-panel-out' : 'sheet-panel'}`}>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-base font-semibold text-neutral-950">{title}</h2>
@@ -263,8 +299,8 @@ export const AppTimeInput = forwardRef<HTMLButtonElement, PickerButtonProps>(fun
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-500"
+                  onClick={closeSheet}
+                  className="pressable inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-500"
                   aria-label="关闭"
                 >
                   <X className="h-4 w-4" />
@@ -327,15 +363,15 @@ export const AppTimeInput = forwardRef<HTMLButtonElement, PickerButtonProps>(fun
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="h-11 rounded-2xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 active:bg-neutral-100"
+                  onClick={closeSheet}
+                  className="pressable h-11 rounded-2xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 active:bg-neutral-100"
                 >
                   取消
                 </button>
                 <button
                   type="button"
                   onClick={confirmTime}
-                  className="h-11 rounded-2xl border border-neutral-800 bg-neutral-800 text-sm font-medium text-white active:bg-neutral-700"
+                  className="pressable h-11 rounded-2xl border border-neutral-800 bg-neutral-800 text-sm font-medium text-white active:bg-neutral-700"
                 >
                   确认
                 </button>

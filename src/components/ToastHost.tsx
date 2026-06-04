@@ -4,6 +4,8 @@ import { addToastListener, consumeQueuedToast, type ToastType } from '../utils/t
 type ToastState = {
   message: string;
   type: ToastType;
+  id: number;
+  leaving: boolean;
 };
 
 const toneClass: Record<ToastType, string> = {
@@ -18,10 +20,16 @@ export function ToastHost() {
   useEffect(() => {
     const queuedToast = consumeQueuedToast();
     if (queuedToast?.message) {
-      setToast({ message: queuedToast.message, type: queuedToast.type ?? 'success' });
+      setToast({ message: queuedToast.message, type: queuedToast.type ?? 'success', id: Date.now(), leaving: false });
     }
 
-    return addToastListener((nextToast) => setToast(nextToast));
+    return addToastListener((nextToast) =>
+      setToast({
+        ...nextToast,
+        id: Date.now(),
+        leaving: false,
+      }),
+    );
   }, []);
 
   useEffect(() => {
@@ -29,9 +37,18 @@ export function ToastHost() {
       return;
     }
 
-    const timer = window.setTimeout(() => setToast(null), 2600);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
+    const leaveTimer = window.setTimeout(() => {
+      setToast((current) => (current?.id === toast.id ? { ...current, leaving: true } : current));
+    }, 2400);
+    const removeTimer = window.setTimeout(() => {
+      setToast((current) => (current?.id === toast.id ? null : current));
+    }, 2630);
+
+    return () => {
+      window.clearTimeout(leaveTimer);
+      window.clearTimeout(removeTimer);
+    };
+  }, [toast?.id]);
 
   if (!toast) {
     return null;
@@ -39,7 +56,11 @@ export function ToastHost() {
 
   return (
     <div className="fixed bottom-24 left-1/2 z-50 w-[min(390px,calc(100vw-32px))] -translate-x-1/2 px-2">
-      <div className={`rounded-2xl border px-4 py-3 text-center text-sm font-medium shadow-2xl ${toneClass[toast.type]}`}>
+      <div
+        className={`rounded-2xl border px-4 py-3 text-center text-sm font-medium shadow-2xl ${
+          toast.leaving ? 'toast-leave' : 'toast-enter'
+        } ${toneClass[toast.type]}`}
+      >
         {toast.message}
       </div>
     </div>
