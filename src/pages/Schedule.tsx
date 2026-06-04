@@ -19,6 +19,8 @@ import {
   createLessonFromSchedule,
   formatMonthDay,
   formatWeekday,
+  getCourseTodoDisplayStatus,
+  getScheduleReminderWindow,
   getTodayDate,
   getTodayScheduleInstances,
   getWeekRange,
@@ -26,6 +28,7 @@ import {
   getWeekday,
   groupScheduleInstancesByDate,
   hasGeneratedLesson,
+  isWithinReminderWindow,
   type ScheduleInstance,
 } from '../utils/scheduleUtils';
 import { createDeletedStudentSnapshot, createStudentSnapshot, getStudentDisplay } from '../utils/studentDisplay';
@@ -91,9 +94,10 @@ const reminderOptions = [
   { value: '60', label: '提前60分钟' },
 ];
 
-const instanceStatusLabel = {
-  pending: '待上课',
-  upcoming: '即将上课',
+const instanceStatusLabel: Record<ScheduleInstance['status'], string> = {
+  later_today: '待上课',
+  countdown: '即将上课',
+  in_progress: '正在上课',
   ended_pending_record: '待记录',
   recorded: '已记录',
 };
@@ -221,8 +225,12 @@ function statusClassName(status: ScheduleInstance['status']) {
     return 'bg-amber-50 text-amber-800';
   }
 
-  if (status === 'upcoming') {
-    return 'bg-sky-50 text-sky-700';
+  if (status === 'in_progress') {
+    return 'bg-neutral-900 text-white';
+  }
+
+  if (status === 'countdown') {
+    return 'bg-stone-100 text-stone-800';
   }
 
   return 'bg-neutral-100 text-neutral-600';
@@ -500,13 +508,14 @@ function ScheduleForm({
             />
           </div>
           <div>
-            <FieldLabel>提前提醒</FieldLabel>
+            <FieldLabel>App内提前提醒</FieldLabel>
             <AppSelect
-              title="选择提醒时间"
+              title="选择 App 内提醒时间"
               value={form.reminderMinutesBefore}
               options={reminderOptions}
               onChange={(value) => updateForm({ reminderMinutesBefore: value })}
             />
+            <p className="mt-1 text-xs leading-5 text-slate-500">打开 App 时，会根据该时间显示提醒；暂不支持系统通知。</p>
           </div>
         </div>
 
@@ -565,6 +574,9 @@ function InstanceCard({
 }) {
   const schedule = instance.schedule;
   const studentDisplay = getStudentDisplay(instance.student, schedule);
+  const displayStatus = getCourseTodoDisplayStatus(instance);
+  const reminderActive = isWithinReminderWindow(instance);
+  const reminderWindow = getScheduleReminderWindow(schedule);
 
   return (
     <Card>
@@ -581,17 +593,28 @@ function InstanceCard({
           {instanceStatusLabel[instance.status]}
         </span>
       </div>
+      <p className="mt-2 text-xs text-slate-500">{displayStatus.text}</p>
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
         <span className="rounded-md bg-slate-50 px-2 py-1">{typeLabel[schedule.scheduleType]}</span>
         {schedule.location ? <span className="rounded-md bg-slate-50 px-2 py-1">{schedule.location}</span> : null}
-        {schedule.reminderMinutesBefore !== undefined ? (
-          <span className="rounded-md bg-slate-50 px-2 py-1">提前{schedule.reminderMinutesBefore}分钟提醒</span>
-        ) : null}
+        <span className="rounded-md bg-slate-50 px-2 py-1">
+          {schedule.reminderMinutesBefore === undefined
+            ? 'App内默认提前120分钟提醒'
+            : reminderWindow > 0
+              ? `App内提前${reminderWindow}分钟提醒`
+              : '未开启App内提前提醒'}
+        </span>
+        {reminderActive ? <span className="rounded-md bg-stone-100 px-2 py-1 text-stone-800">提醒中</span> : null}
       </div>
 
       <div className="mt-4 grid gap-2">
-        <ActionButton variant="primary" className="w-full" onClick={() => onRecord(instance)}>
+        <ActionButton
+          variant={instance.status === 'ended_pending_record' ? 'primary' : 'secondary'}
+          className={`w-full ${instance.status === 'recorded' ? 'opacity-60' : ''}`}
+          onClick={() => onRecord(instance)}
+          disabled={instance.status === 'recorded'}
+        >
           {instance.status === 'recorded' ? '已记录' : '记录课时'}
         </ActionButton>
         <div className="grid grid-cols-2 gap-2">
@@ -785,7 +808,7 @@ export function Schedule({ onCreateStudent, onOpenLessonEditor, onEditingChange 
       return;
     }
 
-    const lesson = addLesson(createLessonFromSchedule(instance.schedule, instance.date));
+    const lesson = addLesson(createLessonFromSchedule(instance.schedule, instance.date, instance.student));
     setCreatedLessonId(lesson.id);
     setNotice('课时已记录，可在记录页补充课堂内容。');
     showToast('课时已记录');

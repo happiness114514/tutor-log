@@ -1,9 +1,10 @@
-import { BarChart3, ChevronRight, PlusCircle, UserPlus } from 'lucide-react';
-import { useRef } from 'react';
+import { BarChart3, ChevronRight, PlusCircle, UserPlus, X } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
 import { useConfirmDialog } from '../components/ConfirmDialog';
 import { PageHeader } from '../components/PageHeader';
+import { Portal, useBodyScrollLock } from '../components/Portal';
 import { SectionTitle } from '../components/SectionTitle';
 import { useLessons } from '../store/useLessons';
 import { useSchedules } from '../store/useSchedules';
@@ -17,12 +18,16 @@ import {
   getRecentLessons,
 } from '../utils/dashboardStats';
 import {
+  calculateDuration,
   createLessonFromSchedule,
+  getCourseTodoDisplayStatus,
+  getScheduleReminderWindow,
   getTodayTodos,
   hasGeneratedLesson,
+  type ScheduleInstance,
   type TodayTodo,
 } from '../utils/scheduleUtils';
-import { getLessonStudentDisplay } from '../utils/studentDisplay';
+import { getLessonStudentDisplay, getStudentDisplay } from '../utils/studentDisplay';
 import { queueToast, showToast } from '../utils/toast';
 
 interface DashboardProps {
@@ -48,16 +53,154 @@ function timeText(lesson: Lesson) {
   return '未填写时间';
 }
 
-function todoBadgeClassName(type: TodayTodo['type']) {
-  if (type === 'ended_unrecorded') {
+function todoBadgeClassName(todo: TodayTodo) {
+  if (todo.type === 'ended_unrecorded') {
     return 'bg-amber-50 text-amber-800';
   }
 
-  if (type === 'upcoming') {
-    return 'bg-sky-50 text-sky-700';
+  if (todo.type === 'in_progress') {
+    return 'bg-neutral-900 text-white';
+  }
+
+  if (todo.isReminderActive) {
+    return 'bg-stone-100 text-stone-800';
+  }
+
+  if (todo.type === 'upcoming' || todo.type === 'today_course') {
+    return 'bg-neutral-100 text-neutral-700';
   }
 
   return 'bg-orange-50 text-orange-700';
+}
+
+function billingTypeLabel(type: string) {
+  return type === 'per_session' ? '按次' : '按小时';
+}
+
+function scheduleTypeLabel(type: string) {
+  return type === 'recurring' ? '固定课程' : '临时课程';
+}
+
+function reminderText(instance: ScheduleInstance) {
+  const reminder = getScheduleReminderWindow(instance.schedule);
+
+  if (instance.schedule.reminderMinutesBefore === undefined) {
+    return 'App内默认提前 120 分钟提醒';
+  }
+
+  if (reminder <= 0) {
+    return '未开启 App 内提前提醒';
+  }
+
+  return `App内提前 ${reminder} 分钟提醒`;
+}
+
+function CourseDetailDialog({
+  todo,
+  lessons,
+  onClose,
+  onRecord,
+}: {
+  todo: TodayTodo | null;
+  lessons: Lesson[];
+  onClose: () => void;
+  onRecord: (instance: ScheduleInstance) => void;
+}) {
+  useBodyScrollLock(Boolean(todo?.instance));
+
+  if (!todo?.instance) {
+    return null;
+  }
+
+  const instance = todo.instance;
+  const { schedule, student } = instance;
+  const studentDisplay = getStudentDisplay(student, schedule);
+  const displayStatus = getCourseTodoDisplayStatus(instance);
+  const isRecorded = hasGeneratedLesson(schedule.id, instance.date, lessons);
+  const duration = calculateDuration(schedule.startTime, schedule.endTime) || schedule.defaultDuration;
+  const subject = schedule.subject || student?.subject || schedule.studentSubjectSnapshot || studentDisplay.subject || '未填写科目';
+
+  return (
+    <Portal>
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-neutral-950/25 px-4 backdrop-blur-[2px] dialog-backdrop">
+        <button type="button" className="absolute inset-0 h-full w-full cursor-default" onClick={onClose} aria-label="关闭课程详情" />
+        <section className="relative max-h-[86vh] w-full max-w-sm overflow-y-auto rounded-3xl border border-neutral-200 bg-white p-5 shadow-2xl dialog-panel">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-neutral-500">课程详情</p>
+              <h2 className="mt-1 text-xl font-semibold text-neutral-950">
+                {studentDisplay.name} · {subject}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="pressable inline-flex h-9 w-9 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 active:bg-neutral-100"
+              aria-label="关闭"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+            <p className="text-sm font-semibold text-neutral-900">{displayStatus.text}</p>
+            <p className="mt-1 text-sm text-neutral-500">
+              {instance.date} · {schedule.startTime}-{schedule.endTime} · {formatDuration(duration)}
+            </p>
+          </div>
+
+          <dl className="mt-4 grid gap-3 text-sm">
+            <div className="grid grid-cols-[92px_1fr] gap-3">
+              <dt className="text-neutral-500">课程类型</dt>
+              <dd className="font-medium text-neutral-800">{scheduleTypeLabel(schedule.scheduleType)}</dd>
+            </div>
+            <div className="grid grid-cols-[92px_1fr] gap-3">
+              <dt className="text-neutral-500">地点</dt>
+              <dd className="font-medium text-neutral-800">{schedule.location || '未填写地点'}</dd>
+            </div>
+            <div className="grid grid-cols-[92px_1fr] gap-3">
+              <dt className="text-neutral-500">App内提醒</dt>
+              <dd className="font-medium text-neutral-800">{reminderText(instance)}</dd>
+            </div>
+            <div className="grid grid-cols-[92px_1fr] gap-3">
+              <dt className="text-neutral-500">默认收费</dt>
+              <dd className="font-medium text-neutral-800">
+                {formatDuration(schedule.defaultDuration)} · {formatMoney(schedule.defaultRate)} · {billingTypeLabel(schedule.billingType)}
+              </dd>
+            </div>
+            <div className="grid grid-cols-[92px_1fr] gap-3">
+              <dt className="text-neutral-500">家长联系方式</dt>
+              <dd className="font-medium text-neutral-800">{student?.parentContact || '未填写联系方式'}</dd>
+            </div>
+            <div className="grid grid-cols-[92px_1fr] gap-3">
+              <dt className="text-neutral-500">课程备注</dt>
+              <dd className="font-medium text-neutral-800">{schedule.note || '无课程备注'}</dd>
+            </div>
+            <div className="grid grid-cols-[92px_1fr] gap-3">
+              <dt className="text-neutral-500">学生备注</dt>
+              <dd className="font-medium text-neutral-800">{student?.note || '无学生备注'}</dd>
+            </div>
+          </dl>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <ActionButton onClick={onClose}>关闭</ActionButton>
+            {isRecorded ? (
+              <ActionButton disabled className="opacity-60">
+                已记录
+              </ActionButton>
+            ) : (
+              <ActionButton
+                variant={instance.status === 'ended_pending_record' ? 'primary' : 'secondary'}
+                onClick={() => onRecord(instance)}
+              >
+                记录课时
+              </ActionButton>
+            )}
+          </div>
+        </section>
+      </div>
+    </Portal>
+  );
 }
 
 export function Dashboard({
@@ -71,6 +214,7 @@ export function Dashboard({
   const { schedules } = useSchedules();
   const { confirm, confirmDialog } = useConfirmDialog();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedTodo, setSelectedTodo] = useState<TodayTodo | null>(null);
   const stats = getDashboardStats(students, lessons);
   const recentLessons = getRecentLessons(lessons);
   const todos = getTodayTodos(schedules, lessons, students);
@@ -118,24 +262,23 @@ export function Dashboard({
     }
   }
 
-  function handleRecordTodo(todo: TodayTodo) {
-    if (todo.type !== 'ended_unrecorded' || !todo.instance) {
-      return;
-    }
-
-    if (hasGeneratedLesson(todo.instance.schedule.id, todo.instance.date, lessons)) {
+  function handleRecordCourse(instance: ScheduleInstance) {
+    if (hasGeneratedLesson(instance.schedule.id, instance.date, lessons)) {
       showToast('这节课已经记录过了', 'info');
+      setSelectedTodo(null);
       return;
     }
 
-    addLesson(createLessonFromSchedule(todo.instance.schedule, todo.instance.date));
+    addLesson(createLessonFromSchedule(instance.schedule, instance.date, instance.student));
     showToast('课时已记录');
+    setSelectedTodo(null);
   }
 
   return (
     <div>
       <PageHeader title="家教课时本" subtitle={`专注记录，清晰管理 · ${todayLabel()}`} />
       {confirmDialog}
+      <CourseDetailDialog todo={selectedTodo} lessons={lessons} onClose={() => setSelectedTodo(null)} onRecord={handleRecordCourse} />
 
       {students.length === 0 ? (
         <Card className="mb-4">
@@ -206,29 +349,52 @@ export function Dashboard({
       <SectionTitle>今日待办</SectionTitle>
       <Card>
         {visibleTodos.length === 0 ? (
-          <p className="text-sm text-slate-500">今天暂无待办事项。</p>
+          <p className="text-sm text-slate-500">今天没有课程安排，也暂无待处理事项。</p>
         ) : (
           <div className="divide-y divide-line">
-            {visibleTodos.map((todo) => (
-              <div key={todo.id} className="py-3 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm leading-6 text-slate-700">{todo.message}</p>
-                  <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${todoBadgeClassName(todo.type)}`}>
-                    {todo.label}
-                  </span>
+            {visibleTodos.map((todo) => {
+              const isCourseTodo = Boolean(todo.instance);
+
+              return (
+                <div key={todo.id} className="py-3 first:pt-0 last:pb-0">
+                  <button
+                    type="button"
+                    className={`w-full text-left ${isCourseTodo ? 'rounded-2xl transition active:bg-neutral-50' : ''}`}
+                    onClick={() => (isCourseTodo ? setSelectedTodo(todo) : undefined)}
+                    disabled={!isCourseTodo}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium leading-6 text-slate-800">{todo.message}</p>
+                        {todo.statusText ? <p className="mt-1 text-xs text-neutral-500">{todo.statusText}</p> : null}
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${todoBadgeClassName(todo)}`}>
+                          {todo.label}
+                        </span>
+                        {todo.isReminderActive ? (
+                          <span className="rounded-full bg-neutral-100 px-2 py-1 text-xs font-semibold text-neutral-700">提醒中</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </button>
+                  {isCourseTodo ? (
+                    <ActionButton
+                      className="mt-3 w-full"
+                      variant={todo.type === 'ended_unrecorded' ? 'primary' : 'secondary'}
+                      onClick={() => todo.instance && handleRecordCourse(todo.instance)}
+                    >
+                      记录课时
+                    </ActionButton>
+                  ) : null}
+                  {todo.type === 'unsettled' ? (
+                    <ActionButton className="mt-3 w-full" onClick={onNavigateToSettlement}>
+                      去结算
+                    </ActionButton>
+                  ) : null}
                 </div>
-                {todo.type === 'ended_unrecorded' ? (
-                  <ActionButton className="mt-3 w-full" onClick={() => handleRecordTodo(todo)}>
-                    记录课时
-                  </ActionButton>
-                ) : null}
-                {todo.type === 'unsettled' ? (
-                  <ActionButton className="mt-3 w-full" onClick={onNavigateToSettlement}>
-                    去结算
-                  </ActionButton>
-                ) : null}
-              </div>
-            ))}
+              );
+            })}
             {hiddenTodoCount > 0 ? (
               <p className="pt-3 text-xs text-slate-500">还有 {hiddenTodoCount} 条待办未展示。</p>
             ) : null}

@@ -1,11 +1,11 @@
 import type { Lesson, Schedule, Student } from '../types';
 import type { LessonInput } from '../store/useLessons';
 import { formatMoney, isEffectiveLesson } from './dashboardStats';
-import { createDeletedStudentSnapshot, getStudentDisplay } from './studentDisplay';
+import { createDeletedStudentSnapshot, createStudentSnapshot, getStudentDisplay } from './studentDisplay';
 
-export type ScheduleInstanceStatus = 'pending' | 'upcoming' | 'ended_pending_record' | 'recorded';
+export type ScheduleInstanceStatus = 'later_today' | 'countdown' | 'in_progress' | 'ended_pending_record' | 'recorded';
 
-export type TodayTodoType = 'ended_unrecorded' | 'upcoming' | 'unsettled';
+export type TodayTodoType = 'ended_unrecorded' | 'in_progress' | 'upcoming' | 'today_course' | 'unsettled';
 
 export type TodayTodo = {
   id: string;
@@ -13,6 +13,8 @@ export type TodayTodo = {
   label: string;
   message: string;
   priority: number;
+  statusText?: string;
+  isReminderActive?: boolean;
   instance?: ScheduleInstance;
   studentId?: string;
 };
@@ -37,7 +39,8 @@ const weekdayLabel: Record<number, string> = {
   7: '周日',
 };
 
-const UPCOMING_REMINDER_MINUTES = 120;
+const COUNTDOWN_THRESHOLD_MINUTES = 120;
+const DEFAULT_APP_REMINDER_MINUTES = 120;
 
 function pad(value: number) {
   return String(value).padStart(2, '0');
@@ -127,24 +130,107 @@ function createDateTime(date: string, time: string, fallbackTime: string) {
   return new Date(`${date}T${time || fallbackTime}:00`);
 }
 
+function getTimeBounds(schedule: Schedule, date: string) {
+  return {
+    startAt: createDateTime(date, schedule.startTime, '00:00'),
+    endAt: createDateTime(date, schedule.endTime, '23:59'),
+  };
+}
+
+function getMinutesUntilStart(schedule: Schedule, date: string, now: Date) {
+  const { startAt } = getTimeBounds(schedule, date);
+  return Math.ceil((startAt.getTime() - now.getTime()) / 60000);
+}
+
+export function getScheduleReminderWindow(schedule: Schedule) {
+  return schedule.reminderMinutesBefore ?? DEFAULT_APP_REMINDER_MINUTES;
+}
+
+export function isWithinReminderWindow(instance: ScheduleInstance, now = new Date()) {
+  const reminderWindow = getScheduleReminderWindow(instance.schedule);
+  if (reminderWindow <= 0) {
+    return false;
+  }
+
+  const minutesUntilStart = getMinutesUntilStart(instance.schedule, instance.date, now);
+  return minutesUntilStart >= 0 && minutesUntilStart <= reminderWindow;
+}
+
+export function formatTimeUntilCourse(minutesUntilStart: number, startTime: string) {
+  if (minutesUntilStart > COUNTDOWN_THRESHOLD_MINUTES) {
+    return `今天 ${startTime} 上课`;
+  }
+
+  if (minutesUntilStart < 60) {
+    return `还有 ${Math.max(1, minutesUntilStart)} 分钟上课`;
+  }
+
+  const hours = Math.floor(minutesUntilStart / 60);
+  const minutes = minutesUntilStart % 60;
+  return minutes > 0 ? `还有 ${hours} 小时 ${minutes} 分钟上课` : `还有 ${hours} 小时上课`;
+}
+
 function getInstanceStatus(schedule: Schedule, date: string, lessons: Lesson[], now = new Date()): ScheduleInstanceStatus {
   const generatedLesson = findGeneratedLesson(schedule.id, date, lessons);
   if (generatedLesson) {
     return 'recorded';
   }
 
-  const startAt = createDateTime(date, schedule.startTime, '00:00');
-  const endAt = createDateTime(date, schedule.endTime, '23:59');
+  const { startAt, endAt } = getTimeBounds(schedule, date);
   if (now > endAt) {
     return 'ended_pending_record';
   }
 
-  const minutesUntilStart = (startAt.getTime() - now.getTime()) / 60000;
-  if (minutesUntilStart >= 0 && minutesUntilStart <= UPCOMING_REMINDER_MINUTES) {
-    return 'upcoming';
+  if (now >= startAt && now <= endAt) {
+    return 'in_progress';
   }
 
-  return 'pending';
+  const minutesUntilStart = getMinutesUntilStart(schedule, date, now);
+  return minutesUntilStart <= COUNTDOWN_THRESHOLD_MINUTES ? 'countdown' : 'later_today';
+}
+
+export function getCourseTodoDisplayStatus(instance: ScheduleInstance, now = new Date()) {
+  if (instance.status === 'recorded') {
+    return {
+      type: 'today_course' as TodayTodoType,
+      label: '已记录',
+      text: '已记录',
+      priority: 6,
+      isReminderActive: false,
+    };
+  }
+
+  if (instance.status === 'ended_pending_record') {
+    return {
+      type: 'ended_unrecorded' as TodayTodoType,
+      label: '待记录',
+      text: '已结束，待记录',
+      priority: 1,
+      isReminderActive: false,
+    };
+  }
+
+  if (instance.status === 'in_progress') {
+    return {
+      type: 'in_progress' as TodayTodoType,
+      label: '正在上课',
+      text: '正在上课',
+      priority: 2,
+      isReminderActive: false,
+    };
+  }
+
+  const minutesUntilStart = getMinutesUntilStart(instance.schedule, instance.date, now);
+  const isCountdown = minutesUntilStart <= COUNTDOWN_THRESHOLD_MINUTES;
+  const reminderActive = isWithinReminderWindow(instance, now);
+
+  return {
+    type: isCountdown ? ('upcoming' as TodayTodoType) : ('today_course' as TodayTodoType),
+    label: isCountdown ? '即将上课' : '今天课程',
+    text: formatTimeUntilCourse(minutesUntilStart, instance.schedule.startTime),
+    priority: isCountdown ? 3 : 4,
+    isReminderActive: reminderActive,
+  };
 }
 
 function createInstance(
@@ -223,7 +309,7 @@ export function groupScheduleInstancesByDate(instances: ScheduleInstance[]) {
   }, {});
 }
 
-export function createLessonFromSchedule(schedule: Schedule, date: string): LessonInput {
+export function createLessonFromSchedule(schedule: Schedule, date: string, student?: Student): LessonInput {
   const amount =
     schedule.billingType === 'hourly'
       ? Number((schedule.defaultDuration * schedule.defaultRate).toFixed(2))
@@ -241,11 +327,13 @@ export function createLessonFromSchedule(schedule: Schedule, date: string): Less
     amount,
     status: 'completed',
     isSettled: false,
-    ...createDeletedStudentSnapshot({
-      studentNameSnapshot: schedule.studentNameSnapshot,
-      studentSubjectSnapshot: schedule.studentSubjectSnapshot || schedule.subject,
-      studentGradeSnapshot: schedule.studentGradeSnapshot,
-    }),
+    ...(student
+      ? createStudentSnapshot(student)
+      : createDeletedStudentSnapshot({
+          studentNameSnapshot: schedule.studentNameSnapshot,
+          studentSubjectSnapshot: schedule.studentSubjectSnapshot || schedule.subject,
+          studentGradeSnapshot: schedule.studentGradeSnapshot,
+        })),
   };
 }
 
@@ -255,7 +343,7 @@ export function getUpcomingScheduleReminders(
   students: Student[],
   now = new Date(),
 ) {
-  return getTodayScheduleInstances(schedules, lessons, students, now).filter((instance) => instance.status === 'upcoming');
+  return getTodayScheduleInstances(schedules, lessons, students, now).filter((instance) => instance.status === 'countdown');
 }
 
 export function getEndedUnrecordedScheduleReminders(
@@ -299,7 +387,7 @@ export function getUnsettledReminders(students: Student[], lessons: Lesson[]): T
         type: 'unsettled' as const,
         label: '未结算',
         message: `${studentName}有 ${summary.lessonCount} 节课未结算，共 ${formatMoney(summary.amount)}`,
-        priority: 3,
+        priority: 5,
         studentId,
       };
     })
@@ -307,27 +395,25 @@ export function getUnsettledReminders(students: Student[], lessons: Lesson[]): T
 }
 
 export function getTodayTodos(schedules: Schedule[], lessons: Lesson[], students: Student[], now = new Date()) {
-  const endedTodos: TodayTodo[] = getEndedUnrecordedScheduleReminders(schedules, lessons, students, now).map(
-    (instance) => ({
-      id: `ended-${instance.id}`,
-      type: 'ended_unrecorded',
-      label: '待记录',
-      message: `${getStudentDisplay(instance.student, instance.schedule).name} · ${instance.subject}课程已结束，记得记录课时`,
-      priority: 1,
-      instance,
-    }),
-  );
+  const courseTodos: TodayTodo[] = getTodayScheduleInstances(schedules, lessons, students, now)
+    .filter((instance) => instance.status !== 'recorded')
+    .map((instance) => {
+      const display = getCourseTodoDisplayStatus(instance, now);
+      const studentDisplay = getStudentDisplay(instance.student, instance.schedule);
 
-  const upcomingTodos: TodayTodo[] = getUpcomingScheduleReminders(schedules, lessons, students, now).map((instance) => ({
-    id: `upcoming-${instance.id}`,
-    type: 'upcoming',
-    label: '即将上课',
-    message: `${instance.schedule.startTime} ${getStudentDisplay(instance.student, instance.schedule).name} · ${instance.subject}即将上课`,
-    priority: 2,
-    instance,
-  }));
+      return {
+        id: `course-${instance.id}`,
+        type: display.type,
+        label: display.label,
+        message: `${instance.schedule.startTime}-${instance.schedule.endTime} ${studentDisplay.name} · ${instance.subject}`,
+        priority: display.priority,
+        statusText: display.text,
+        isReminderActive: display.isReminderActive,
+        instance,
+      };
+    });
 
-  return [...endedTodos, ...upcomingTodos, ...getUnsettledReminders(students, lessons)].sort(
-    (a, b) => a.priority - b.priority,
+  return [...courseTodos, ...getUnsettledReminders(students, lessons)].sort(
+    (a, b) => a.priority - b.priority || (a.instance?.schedule.startTime ?? '').localeCompare(b.instance?.schedule.startTime ?? ''),
   );
 }
