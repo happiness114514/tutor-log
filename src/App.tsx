@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Lessons } from './pages/Lessons';
 import { Schedule } from './pages/Schedule';
 import { Settlement } from './pages/Settlement';
+import { Statistics } from './pages/Statistics';
 import { Students } from './pages/Students';
 import { useActivePage } from './store/useActivePage';
 
@@ -45,12 +46,25 @@ export function App() {
     setActivePage('schedule');
   }
 
+  function openStatistics() {
+    setPendingAction(null);
+    setPendingEditLessonId(null);
+    setActivePage('statistics');
+  }
+
+  function openDashboard() {
+    setPendingAction(null);
+    setPendingEditLessonId(null);
+    setActivePage('dashboard');
+  }
+
   const pages = {
     dashboard: (
       <Dashboard
         onCreateLesson={openNewLesson}
         onCreateStudent={openNewStudent}
         onNavigateToSettlement={openSettlement}
+        onNavigateToStatistics={openStatistics}
       />
     ),
     schedule: <Schedule onCreateStudent={openNewStudent} onOpenLessonEditor={openLessonEditor} />,
@@ -72,6 +86,7 @@ export function App() {
       />
     ),
     settlement: <Settlement onNavigateToLessons={openNewLesson} />,
+    statistics: <Statistics onBack={openDashboard} />,
   };
 
   return (

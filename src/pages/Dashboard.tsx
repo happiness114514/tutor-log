@@ -1,4 +1,4 @@
-import { ChevronRight, PlusCircle, UserPlus } from 'lucide-react';
+import { BarChart3, ChevronRight, PlusCircle, UserPlus } from 'lucide-react';
 import { useRef } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { Card } from '../components/Card';
@@ -29,6 +29,7 @@ interface DashboardProps {
   onCreateLesson: () => void;
   onCreateStudent: () => void;
   onNavigateToSettlement: () => void;
+  onNavigateToStatistics: () => void;
 }
 
 function todayLabel() {
@@ -59,7 +60,12 @@ function todoBadgeClassName(type: TodayTodo['type']) {
   return 'bg-orange-50 text-orange-700';
 }
 
-export function Dashboard({ onCreateLesson, onCreateStudent, onNavigateToSettlement }: DashboardProps) {
+export function Dashboard({
+  onCreateLesson,
+  onCreateStudent,
+  onNavigateToSettlement,
+  onNavigateToStatistics,
+}: DashboardProps) {
   const { students } = useStudents();
   const { lessons, addLesson } = useLessons();
   const { schedules } = useSchedules();
@@ -178,6 +184,20 @@ export function Dashboard({ onCreateLesson, onCreateStudent, onNavigateToSettlem
           <span className="min-w-0 flex-1">
             <span className="block text-base font-semibold">新增学生</span>
             <span className="mt-1 block text-sm text-neutral-500">添加新的家教学生</span>
+          </span>
+          <ChevronRight className="h-4 w-4 text-neutral-400" />
+        </button>
+        <button
+          type="button"
+          onClick={onNavigateToStatistics}
+          className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 text-left text-neutral-900 shadow-card transition active:bg-neutral-100"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100">
+            <BarChart3 className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-base font-semibold">数据统计</span>
+            <span className="mt-1 block text-sm text-neutral-500">查看收入和课时趋势</span>
           </span>
           <ChevronRight className="h-4 w-4 text-neutral-400" />
         </button>

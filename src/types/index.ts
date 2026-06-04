@@ -1,4 +1,4 @@
-export type PageId = 'dashboard' | 'schedule' | 'lessons' | 'students' | 'settlement';
+export type PageId = 'dashboard' | 'schedule' | 'lessons' | 'students' | 'settlement' | 'statistics';
 
 export type LessonStatus = 'completed' | 'cancelled' | 'leave' | 'makeup' | 'trial';
 
