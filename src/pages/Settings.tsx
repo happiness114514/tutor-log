@@ -1,4 +1,4 @@
-import { ArrowLeft, Download, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, BookOpen, Download, Trash2, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { ActionButton } from '../components/ActionButton';
 import { AppSelect } from '../components/AppSelect';
@@ -13,6 +13,7 @@ import { queueToast, showToast } from '../utils/toast';
 
 interface SettingsProps {
   onBack: () => void;
+  onOpenOnboarding: () => void;
 }
 
 const reminderOptions = [
@@ -60,7 +61,7 @@ function durationMode(duration: number) {
   return duration === 1 || duration === 1.5 || duration === 2 ? String(duration) : 'custom';
 }
 
-export function Settings({ onBack }: SettingsProps) {
+export function Settings({ onBack, onOpenOnboarding }: SettingsProps) {
   const { settings, updateSettings, markExportedAt } = useAppSettings();
   const { confirm, confirmDialog } = useConfirmDialog();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -218,6 +219,15 @@ export function Settings({ onBack }: SettingsProps) {
             ) : null}
           </div>
         </div>
+      </Card>
+
+      <SectionTitle>新手引导</SectionTitle>
+      <Card>
+        <p className="text-sm leading-6 text-neutral-600">重新查看核心流程说明，快速回顾如何添加学生、安排课程、记录课时和结算备份。</p>
+        <ActionButton className="mt-4 inline-flex w-full items-center justify-center gap-2" onClick={onOpenOnboarding}>
+          <BookOpen className="h-4 w-4" />
+          重新查看新手引导
+        </ActionButton>
       </Card>
 
       <SectionTitle>数据安全</SectionTitle>

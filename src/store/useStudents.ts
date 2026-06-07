@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { defaultStudents } from './mockData';
 import type { BillingType, SettlementCycle, Student } from '../types';
 import { readStorage, writeStorage } from '../utils/storage';
 
@@ -53,7 +52,7 @@ function normalizeText(value?: string) {
 export function useStudents() {
   const [students, setStudents] = useState<Student[]>(() => {
     const stored = readStorage<unknown>(STORAGE_KEY, null);
-    return Array.isArray(stored) && stored.every(isStudent) ? stored : defaultStudents;
+    return Array.isArray(stored) && stored.every(isStudent) ? stored : [];
   });
 
   useEffect(() => {

@@ -22,6 +22,7 @@ export type AppSettings = {
   defaultReminderMinutesBefore: number;
   defaultSettlementCycle: SettlementCycle;
   defaultDuration: number;
+  hasCompletedOnboarding: boolean;
   lastExportedAt?: string;
   updatedAt: string;
 };

@@ -8,6 +8,7 @@ export const defaultAppSettings: AppSettings = {
   defaultReminderMinutesBefore: 30,
   defaultSettlementCycle: 'monthly',
   defaultDuration: 2,
+  hasCompletedOnboarding: false,
   updatedAt: new Date(0).toISOString(),
 };
 
@@ -32,6 +33,7 @@ export function normalizeAppSettings(value: unknown): AppSettings {
     defaultReminderMinutesBefore,
     defaultSettlementCycle,
     defaultDuration,
+    hasCompletedOnboarding: settings.hasCompletedOnboarding === true,
     lastExportedAt: typeof settings.lastExportedAt === 'string' ? settings.lastExportedAt : undefined,
     updatedAt: typeof settings.updatedAt === 'string' ? settings.updatedAt : new Date().toISOString(),
   };
@@ -49,18 +51,49 @@ export function useAppSettings() {
   }, [settings]);
 
   function updateSettings(input: Partial<Omit<AppSettings, 'updatedAt'>>) {
-    setSettings((current) => ({
-      ...current,
-      ...input,
-      updatedAt: new Date().toISOString(),
-    }));
+    setSettings(() => {
+      const latestSettings = readAppSettingsFromStorage();
+      const nextSettings = {
+        ...latestSettings,
+        ...input,
+        updatedAt: new Date().toISOString(),
+      };
+
+      writeStorage(APP_SETTINGS_STORAGE_KEY, nextSettings);
+      return nextSettings;
+    });
   }
 
   function markExportedAt(exportedAt: string) {
+    const latestSettings = readAppSettingsFromStorage();
     const nextSettings = {
-      ...settings,
+      ...latestSettings,
       lastExportedAt: exportedAt,
       updatedAt: exportedAt,
+    };
+
+    setSettings(nextSettings);
+    writeStorage(APP_SETTINGS_STORAGE_KEY, nextSettings);
+    return nextSettings;
+  }
+
+  function completeOnboarding() {
+    const nextSettings = {
+      ...readAppSettingsFromStorage(),
+      hasCompletedOnboarding: true,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setSettings(nextSettings);
+    writeStorage(APP_SETTINGS_STORAGE_KEY, nextSettings);
+    return nextSettings;
+  }
+
+  function resetOnboarding() {
+    const nextSettings = {
+      ...readAppSettingsFromStorage(),
+      hasCompletedOnboarding: false,
+      updatedAt: new Date().toISOString(),
     };
 
     setSettings(nextSettings);
@@ -72,5 +105,7 @@ export function useAppSettings() {
     settings,
     updateSettings,
     markExportedAt,
+    completeOnboarding,
+    resetOnboarding,
   };
 }
